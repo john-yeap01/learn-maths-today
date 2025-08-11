@@ -1,0 +1,35 @@
+# ---------- Python ----------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# ---------- Manim outputs ----------
+# Ignore any "media" directory anywhere in the tree
+media/
+**/media/**
+
+# Optional: if you also export beside media (uncomment if you want)
+# *.mp4
+# *.mov
+# *.gif
+# *.png
+
+# ---------- Notebooks ----------
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/**
+
+# ---------- Envs / tooling ----------
+.venv/
+venv*/
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+.idea/
+.vscode/
+
+# ---------- OS junk ----------
+.DS_Store
+Thumbs.db
+
