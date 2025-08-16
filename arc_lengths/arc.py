@@ -116,13 +116,13 @@ class Reveal(Scene):
                 radius=R- EPS, 
                 start_angle=90*DEGREES,     # top
                 angle=max(EPS, theta.get_value())
-            ).set_fill("#F802D3", 1).set_stroke(width=0)
+            ).set_fill("#478978", 1).set_stroke(width=0)
         )
 
         arc = always_redraw(lambda:
             Arc(radius=1, start_angle=90*DEGREES, 
                 angle=max(EPS, theta.get_value())
-            ).set_stroke("#111827", width=3)
+            ).set_stroke("#8B95C9", width=3)
         )
 
         self.add(sector)
@@ -131,4 +131,41 @@ class Reveal(Scene):
 
       
 
-        
+
+
+class ArcLinkedReveal(Scene):
+    def construct(self):
+        R = 1.0
+        start = 90*DEGREES           # 12 o’clock
+        EPS = 1e-3
+
+
+        old = Circle(radius=R).set_fill("#8B95C9", 0.75).set_stroke(width=0)
+        old.z_index = 1
+
+        self.play(FadeIn(old))        # old on top
+
+        theta = ValueTracker(EPS)     # drives BOTH the sector and the arc
+
+        # the “reveal” wedge (paint it the same color as `new`)
+        sector = always_redraw(lambda:
+            Sector(
+                radius=R + EPS,               # tiny overlap to avoid hairline seams
+                start_angle=start,
+                angle=max(EPS, theta.get_value())
+            ).set_fill("#F20000", 1).set_stroke(width=0)
+        )
+
+        # the outline arc that grows with the same theta
+        arc = always_redraw(lambda:
+            Arc(
+                radius=R,
+                start_angle=start,
+                angle=max(EPS, theta.get_value())
+            ).set_stroke("#000000", width=3).set_cap_style(CapStyleType.ROUND)
+        )
+
+        # add both; they stay locked together as theta changes
+        self.add(sector, arc)
+        self.play(theta.animate.set_value(TAU - EPS), run_time=1.2, rate_func=smootherstep)
+        self.wait(0.2)
