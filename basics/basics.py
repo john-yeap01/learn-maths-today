@@ -1,5 +1,12 @@
 from manim import *
 
+class Hello(Scene):
+    def construct(self):
+        text = Text("Arcs", color="#478978")
+        self.play(Write(text))
+        self.wait()
+
+
 class MakeSquare(Scene):
     def construct(self):
         square = Square().set_fill("#517664", 0.5)

@@ -507,5 +507,10 @@ class AngleSweepPulseTrace(Scene):
         self.play(FadeOut(inner_glow), run_time=0.5)
 
 
+        self.play(FadeOut(arc_length), run_time=0.2)
+
+        arc_length_2 = Text()
+
+
 
 
