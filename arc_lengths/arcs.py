@@ -1,5 +1,5 @@
 from manim import *
-from manim import CapStyleType, LineJointType
+from manim import CapStyleType, LineJointType, rate_functions as rf
 from manim import Sector, ValueTracker
 from manim import Text
 import numpy as np
@@ -39,19 +39,69 @@ class Arcs(Scene):
 
 class Arcs2(Scene):
     def construct(self):
-        arc_white = Arc(radius=1, start_angle=0, angle=2*PI)
+        # Background circle
+        arc_white = Arc(radius=1, start_angle=0, angle=TAU - 1e-4)
         arc_white.set_stroke("#478978", width=2)
         arc_white.set_cap_style(CapStyleType.ROUND)
         arc_white.joint_type = LineJointType.ROUND
         self.play(FadeIn(arc_white))
+        self.wait(0.2)
+
+        # --- Angle tracker + dynamic arc ---
+        theta = ValueTracker(0.0)  # radians
+
+        def make_arc():
+            a = theta.get_value()
+            return (
+                Arc(radius=1, start_angle=0, angle=a)
+                .set_stroke("#111827", width=5)
+                .set_cap_style(CapStyleType.ROUND)
+            )
+
+        arc = always_redraw(make_arc)
+        self.play(Create(arc))
+
+        # --- Label (Text, no LaTeX) ---
+        def deg_label():
+            deg = theta.get_value() * 180 / PI
+            return Text(f"{deg:0.1f}°", font_size=36).to_corner(UL).set_color("#111827")
+
+        label = always_redraw(deg_label)
+        self.add(label)
+
+        # ------------------------------------------------------------------
+        # Smooth keyframes: up → down → up, but with softer easing
+        # ------------------------------------------------------------------
+        self.play(
+            theta.animate.set_value(220*DEGREES),
+            run_time=1.8,
+            rate_func=rf.ease_in_out_sine
+        )
+        self.play(
+            theta.animate.set_value(130*DEGREES),
+            run_time=1.5,
+            rate_func=rf.ease_in_out_sine
+        )
+        self.play(
+            theta.animate.set_value(300*DEGREES),
+            run_time=2.0,
+            rate_func=rf.ease_in_out_sine
+        )
         self.wait(0.5)
 
-        # create ARC
-        arc = Arc(radius=1, start_angle=0, angle=PI)
-        arc.set_stroke("#111827", width=5)
-        arc.set_cap_style(CapStyleType.ROUND)
-        arc.joint_type = LineJointType.ROUND
-        self.play(Create(arc))
+        # ------------------------------------------------------------------
+        # Arbitrary function: continuous smooth wobble
+        # ------------------------------------------------------------------
+        def theta_of_alpha(alpha: float) -> float:
+            base = 180*DEGREES
+            return base + (40*DEGREES) * np.sin(2*np.pi*alpha)
+
+        self.play(
+            UpdateFromAlphaFunc(theta, lambda m, a: m.set_value(theta_of_alpha(a))),
+            run_time=3.0,
+            rate_func=rf.linear  # linear in alpha, but sine makes it smooth
+        )
+        self.wait(0.5)
 
 class Overlap(Scene):
     def construct(self):
@@ -514,3 +564,55 @@ class AngleSweepPulseTrace(Scene):
 
 
 
+
+class ShowArcs(Scene):
+    def construct(self):
+        # ------------------------------
+        # Left: Arc of a parabola
+        # ------------------------------
+        parabola_func = lambda x: -0.6*(x**2) + 2
+
+        # Full parabola (gray)
+        parabola = FunctionGraph(parabola_func, x_range=[-2, 2], color=GRAY)
+
+        # Highlighted arc (green)
+        parabola_arc = FunctionGraph(parabola_func, x_range=[-1.7, 1.2], color=GREEN)
+
+        # Endpoints
+        A = Dot([-1.7, parabola_func(-1.7), 0])
+        D = Dot([1.2, parabola_func(1.2), 0])
+
+        label_A = Text("A").next_to(A, DL, buff=0.1).scale(0.5)
+        label_D = Text("D").next_to(D, DR, buff=0.1).scale(0.5)
+
+        title_left = Text("An arc of a parabola", color=GREEN).scale(0.5).next_to(parabola, UP)
+
+        parabola_group = VGroup(parabola, parabola_arc, A, D, label_A, label_D, title_left).shift(LEFT*3)
+
+        # ------------------------------
+        # Right: Arc of a circle
+        # ------------------------------
+        circle = Circle(color=GRAY)
+
+        # Highlighted arc (purple, top half)
+        arc = Arc(radius=1, start_angle=PI, angle=PI, color=PURPLE)
+
+        O = Dot([0,0,0])
+        C = Dot(arc.point_from_proportion(0))
+        B = Dot(arc.point_from_proportion(1))
+
+        label_O = Text("O").next_to(O, DOWN, buff=0.1).scale(0.5)
+        label_C = Text("C").next_to(C, DL, buff=0.1).scale(0.5)
+        label_B = Text("B").next_to(B, DR, buff=0.1).scale(0.5)
+
+        title_right = Text("An arc", color=PURPLE).scale(0.5).next_to(circle, UP)
+
+        circle_group = VGroup(circle, arc, O, C, B, label_O, label_C, label_B, title_right).shift(RIGHT*3)
+
+        # ------------------------------
+        # Animation sequence
+        # ------------------------------
+        self.play(FadeIn(parabola_group))
+        self.wait(1)
+        self.play(FadeIn(circle_group))
+        self.wait(2)
