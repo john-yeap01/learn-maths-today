@@ -165,7 +165,7 @@ class StackingRadiiWithAngle(Scene):
         self.play(FadeIn(r_label), run_time=0.3)
 
         # Title + live theta readout (in radians)
-        title = Text("Stacking radii along the rim → Radians").scale(0.5)
+        title = Text("Stacking radii along the rim").scale(0.5)
         title.to_edge(UP)
         self.play(FadeIn(title, shift=0.2*DOWN), run_time=0.4)
 
@@ -301,4 +301,3 @@ class StackingRadiiWithAngle(Scene):
         self.play(FadeIn(finale_text, shift=0.2*UP), run_time=0.6)
         self.wait(1.0)
 
-        self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.7)

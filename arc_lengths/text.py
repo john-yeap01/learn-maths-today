@@ -1,4 +1,9 @@
 from manim import *
+config.background_color = "#FEFAE1"
+config.renderer = "cairo"
+
+# set default text color
+Text.set_default(color=BLACK)
 
 class HandwrittenAngleArc(Scene):
     def construct(self):
@@ -16,7 +21,7 @@ class HandwrittenAngleArc(Scene):
             denom = Text(denom_str, font_size=fs)
 
             width = max(numer.width, denom.width) + 0.3
-            bar = Line(LEFT*width/2, RIGHT*width/2, stroke_width=6)
+            bar = Line(LEFT*width/2, RIGHT*width/2, stroke_width=6).set_stroke(BLACK)
 
             group = VGroup(numer, bar, denom)
             numer.next_to(bar, UP, buff=gap)
@@ -98,8 +103,6 @@ class HandwrittenAngleArc(Scene):
         self.wait(1)
 
 
-from manim import *
-
 class AreaSectorEquation(Scene):
     def construct(self):
         fs   = 54
@@ -114,7 +117,7 @@ class AreaSectorEquation(Scene):
             numer = Text(numer_str, font_size=fs)
             denom = Text(denom_str, font_size=fs)
             width = max(numer.width, denom.width) + 0.3
-            bar = Line(LEFT*width/2, RIGHT*width/2, stroke_width=6)
+            bar = Line(LEFT*width/2, RIGHT*width/2, stroke_width=6).set_stroke(BLACK)
             group = VGroup(numer, bar, denom)
             numer.next_to(bar, UP, buff=gap)
             denom.next_to(bar, DOWN, buff=gap)
@@ -172,3 +175,66 @@ class AreaSectorEquation(Scene):
         eq2.move_to(eq2_target); times.move_to(times_target)
         self.play(Write(eq2), Write(times))
         self.wait(1)
+
+
+# Helper: find the first submobject whose text matches a target substring.
+# Works for Text since it breaks into submobjects per glyph/word in many cases.
+def text_index(text_mobject: Text, target: str) -> int:
+    for i, sm in enumerate(text_mobject):
+        # Some submobjects may not have .text; filter safely
+        if hasattr(sm, "text") and sm.text == target:
+            return i
+    # Fallback: color nothing if not found
+    return 0
+
+
+
+class ArcFormulasDegrees(Scene):
+    def construct(self):
+        fs   = 54
+        gap  = 0.35
+
+        def make_fraction(numer_str, denom_str):
+            numer = Text(numer_str, font_size=fs, color=BLACK)
+            denom = Text(denom_str, font_size=fs, color=BLACK)
+            width = max(numer.width, denom.width) + 0.3
+            bar = Line(LEFT*width/2, RIGHT*width/2, stroke_width=6, color=BLACK)
+            group = VGroup(numer, bar, denom)
+            numer.next_to(bar, UP, buff=gap)
+            denom.next_to(bar, DOWN, buff=gap)
+            return group, numer, bar, denom
+
+        # --- Title ---
+        title = Text("Arc & Sector Formulas", font_size=48, color=BLACK).to_edge(UP)
+        self.play(Write(title))
+        self.wait(0.5)
+
+        # --- Arc length formula: s = (θ / 360°) × 2πr ---
+        frac1, num1, bar1, den1 = make_fraction("θ", "360°")
+        mult1 = Text("×", font_size=fs, color=BLACK)
+        twopir = Text("2πr", font_size=fs, color=BLACK)
+        eq1 = Text("=", font_size=fs, color=BLACK)
+        s = Text("s", font_size=fs, color=BLACK)
+
+        arc_formula = VGroup(s, eq1, frac1, mult1, twopir).arrange(RIGHT, buff=0.5)
+        arc_formula.next_to(title, DOWN, buff=1)
+
+        self.play(Write(s), Write(eq1))
+        self.play(Create(bar1), Write(num1), Write(den1))
+        self.play(Write(mult1), Write(twopir))
+        self.wait(1)
+
+        # --- Sector area formula: A = (θ / 360°) × πr² ---
+        frac2, num2, bar2, den2 = make_fraction("θ", "360°")
+        mult2 = Text("×", font_size=fs, color=BLACK)
+        pir2 = Text("πr²", font_size=fs, color=BLACK)
+        eq2 = Text("=", font_size=fs, color=BLACK)
+        A = Text("A", font_size=fs, color=BLACK)
+
+        area_formula = VGroup(A, eq2, frac2, mult2, pir2).arrange(RIGHT, buff=0.5)
+        area_formula.next_to(arc_formula, DOWN, buff=1)
+
+        self.play(Write(A), Write(eq2))
+        self.play(Create(bar2), Write(num2), Write(den2))
+        self.play(Write(mult2), Write(pir2))
+        self.wait(2)
