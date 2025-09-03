@@ -26,3 +26,4 @@ and then
 manim -p -qh file_name.py SceneName
 `
 
+The output videos can then be found inside the workspace under the folder "media"
