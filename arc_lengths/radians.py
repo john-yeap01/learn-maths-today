@@ -301,3 +301,171 @@ class StackingRadiiWithAngle(Scene):
         self.play(FadeIn(finale_text, shift=0.2*UP), run_time=0.6)
         self.wait(1.0)
 
+
+
+
+
+
+class RadiusToArcOneRadian(Scene):
+    def construct(self):
+        # --- styling / params ---
+        R = 2.0
+        start = 0*DEGREES      # where the arc begins on the circle
+        EPS = 1e-3
+
+        fill_col   = "#517664"
+        rim_col    = "#111827"
+        arc_col    = "#F20000"
+        label_col  = "#000000"
+
+        # --- backdrop circle ---
+        disk = Circle(radius=R).set_fill(fill_col, 0.8).set_stroke(width=0)
+        rim  = Circle(radius=R).set_stroke(rim_col, 6).set_fill(opacity=0)
+        self.play(FadeIn(disk), Create(rim), run_time=0.8)
+
+        # --- radius segment (straight) ---
+        radius_line = Line(ORIGIN, R*RIGHT).set_stroke(rim_col, 6).set_cap_style(CapStyleType.ROUND)
+        r_tip = Dot(R*RIGHT, color=rim_col)
+        r_label = Text("R", color=label_col).scale(0.6).next_to(radius_line, DOWN, buff=0.2)
+
+        self.play(Create(radius_line), FadeIn(r_tip), FadeIn(r_label))
+        self.wait(0.3)
+
+        # --- a separate straight ruler copy of the radius (we’ll morph this into an arc) ---
+        ruler = radius_line.copy().set_color(arc_col)
+        # ruler.shift(UP*1.2)  # float it above a bit so the transform is obvious
+        ruler_label = Text("same length as radius", color=label_col).scale(0.5).next_to(ruler, UP, buff=0.2)
+        self.play(FadeIn(ruler), FadeIn(ruler_label))
+        self.wait(0.2)
+        self.play(FadeOut(ruler_label))
+
+        # --- target arc on the circumference whose length equals the radius ---
+        # Arc length s = R * theta; to match s = R, choose theta = 1 radian.
+        theta_one = 1.0  # radians
+        one_rad_arc = Arc(radius=R, start_angle=start, angle=theta_one)\
+                        .set_stroke(arc_col, 10).set_cap_style(CapStyleType.ROUND)
+
+        # We want the arc to be attached to the circle’s rim at the same start angle.
+        # Move the arc into place (already centered at ORIGIN by default).
+        self.play(Transform(ruler, one_rad_arc), run_time=1.2, rate_func=smooth)
+        self.wait(0.2)
+
+        # --- subtle emphasis: a dot runs along the arc to "trace" the length ---
+        tracer = Dot(color=arc_col, radius=0.06).move_to(one_rad_arc.point_from_proportion(0))
+        self.add(tracer)
+
+        def move_tracer(a):
+            tracer.move_to(one_rad_arc.point_from_proportion(a))
+
+        self.play(UpdateFromAlphaFunc(tracer, lambda m, a: move_tracer(a)),
+                  run_time=0.9, rate_func=linear)
+        self.wait(0.4)
+
+        # --- after a short delay: reveal the central angle = 1 radian ---
+        # Draw the sector and a small central marker
+        sector = Sector(radius=R+EPS, start_angle=start, angle=EPS)\
+                    .set_fill(arc_col, 0.45).set_stroke(width=0)
+        marker = Arc(radius=0.5, start_angle=start, angle=EPS)\
+                    .set_stroke(arc_col, 6).set_cap_style(CapStyleType.ROUND)
+
+        self.play(FadeIn(sector), FadeIn(marker), run_time=0.3)
+
+        # animate the angle opening from ~0 to 1 rad
+        self.play(
+            Transform(sector, Sector(radius=R+EPS, start_angle=start, angle=theta_one)
+                                 .set_fill(arc_col, 0.45).set_stroke(width=0)),
+            Transform(marker, Arc(radius=0.5, start_angle=start, angle=theta_one)
+                                 .set_stroke(arc_col, 6).set_cap_style(CapStyleType.ROUND)),
+            run_time=0.9, rate_func=smooth
+        )
+
+        # label "1 radian" near the angle bisector
+        def angle_midpoint(radius_scale=1.0):
+            return radius_scale * np.array([
+                np.cos(start + theta_one/2),
+                np.sin(start + theta_one/2),
+                0.0
+            ])
+
+        one_rad_label = Text("1 radian", color=label_col).scale(0.7)
+        one_rad_label.move_to(1.4 * angle_midpoint(0.5))  # place near the small marker
+        self.play(FadeIn(one_rad_label), run_time=0.4)
+
+        # optional guide text tying it together
+        guide = Text("Arc length equals radius → angle is 1 radian", color=label_col)\
+                    .scale(0.6).to_edge(DOWN)
+        self.play(FadeIn(guide))
+        self.wait(1.0)
+
+
+class RadiusToArcOneRadianMinimal(Scene):
+    def construct(self):
+        def play_radian_animation(R):
+            start = 0*DEGREES
+            theta_one = 1.0  # radians
+            EPS = 1e-3
+
+            # --- colors ---
+            fill_col   = "#517664"
+            rim_col    = "#111827"
+            arc_col    = "#F20000"
+            label_col  = "#000000"
+
+            # --- backdrop circle ---
+            disk = Circle(radius=R).set_fill(fill_col, 0.8).set_stroke(width=0)
+            rim  = Circle(radius=R).set_stroke(rim_col, 6).set_fill(opacity=0)
+            self.play(FadeIn(disk), Create(rim))
+
+            # --- radius line ---
+            radius_line = Line(ORIGIN, R*RIGHT).set_stroke(rim_col, 6).set_cap_style(CapStyleType.ROUND)
+            self.play(Create(radius_line))
+
+            # --- copy of radius morphs into arc of length R ---
+            ruler = radius_line.copy().set_color(arc_col)
+            one_rad_arc = Arc(radius=R, start_angle=start, angle=theta_one)\
+                            .set_stroke(arc_col, 10).set_cap_style(CapStyleType.ROUND)
+            self.play(Transform(ruler, one_rad_arc), run_time=1.2, rate_func=smooth)
+
+            # --- tracer dot along arc ---
+            tracer = Dot(color=arc_col, radius=0.06).move_to(one_rad_arc.point_from_proportion(0))
+            self.add(tracer)
+
+            def move_tracer(a):
+                tracer.move_to(one_rad_arc.point_from_proportion(a))
+
+            self.play(UpdateFromAlphaFunc(tracer, lambda m, a: move_tracer(a)),
+                      run_time=0.9, rate_func=linear)
+
+            # --- central angle sector expanding to 1 radian ---
+            sector = Sector(radius=R+EPS, start_angle=start, angle=EPS)\
+                        .set_fill(arc_col, 0.45).set_stroke(width=0)
+            marker = Arc(radius=0.5, start_angle=start, angle=EPS)\
+                        .set_stroke(arc_col, 6).set_cap_style(CapStyleType.ROUND)
+
+            self.play(FadeIn(sector), FadeIn(marker), run_time=0.3)
+            self.play(
+                Transform(sector, Sector(radius=R+EPS, start_angle=start, angle=theta_one)
+                                     .set_fill(arc_col, 0.45).set_stroke(width=0)),
+                Transform(marker, Arc(radius=0.5, start_angle=start, angle=theta_one)
+                                     .set_stroke(arc_col, 6).set_cap_style(CapStyleType.ROUND)),
+                run_time=0.9, rate_func=smooth
+            )
+
+            # --- label “1 radian” ---
+            label = Text("1 radian", color=label_col).scale(0.7)
+            label.move_to(1.4 * np.array([
+                np.cos(start + theta_one/2),
+                np.sin(start + theta_one/2),
+                0.0
+            ]))
+            self.play(FadeIn(label))
+            self.wait(1)
+
+            # clear before next run
+            self.play(FadeOut(disk), FadeOut(rim), FadeOut(radius_line), FadeOut(ruler),
+                      FadeOut(tracer), FadeOut(sector), FadeOut(marker), FadeOut(label))
+
+        # --- First run with radius 2 ---
+        play_radian_animation(2.0)
+        # --- Second run with radius 3 ---
+        play_radian_animation(3.0)

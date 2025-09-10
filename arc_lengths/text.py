@@ -46,7 +46,7 @@ class HandwrittenAngleArc(Scene):
         self.play(Create(rhs_bar))
         self.play(Write(rhs_num))
         self.play(Write(rhs_den))
-        self.wait(0.5)
+        self.wait(3)
 
         # --- Rename: "Arc length" -> "s", "Circumference" -> "C" ---
         new_s = Text("s", font_size=fs).move_to(rhs_num)
