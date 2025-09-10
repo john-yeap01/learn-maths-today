@@ -1,5 +1,12 @@
 from manim import *
-import numpy as np 
+import math
+import numpy as np
+
+config.background_color = "#FEFAE1"   # any hex or "WHITE"/"BLACK"
+config.renderer = "cairo"
+TICK_COLOR = "#E4572E"
+TICK_W     = 3
+TICK_LEN   = 0.18
 
 class RadianWrap(Scene):
     def construct(self):
@@ -141,14 +148,12 @@ class StackingRadii(Scene):
         self.play(*[FadeOut(m) for m in self.mobjects])
 
 
-from manim import *
-import math
-import numpy as np
-
 class StackingRadiiWithAngle(Scene):
     def construct(self):
         R = 2.5
-        circle = Circle(radius=R, color=BLUE_D).set_stroke(width=4)
+        fill_col   = "#517664"
+
+        circle = Circle(radius=R, color=BLUE_D).set_stroke(width=4).set_fill(fill_col, 0.8).set_stroke(width=0)
         self.play(Create(circle), run_time=1.0)
 
         # --- Fixed start radius (reference line at angle = 0) ---
@@ -160,7 +165,7 @@ class StackingRadiiWithAngle(Scene):
         self.play(GrowFromCenter(sweep_radius), run_time=0.6)
 
         # Label r = 1 (conceptual unit circle; we just scale visually for clarity)
-        r_label = Text("r = 1", color=YELLOW).scale(0.5)
+        r_label = Text("r = 1", color=BLACK).scale(0.5)
         r_label.next_to(start_radius, DOWN, buff=0.2)
         self.play(FadeIn(r_label), run_time=0.3)
 
@@ -171,7 +176,7 @@ class StackingRadiiWithAngle(Scene):
 
         theta_tracker = ValueTracker(0.0)
         theta_readout = always_redraw(
-            lambda: Text(f"θ = {theta_tracker.get_value():.3f} rad", color=TEAL_A)
+            lambda: Text(f"θ = {theta_tracker.get_value():.3f} rad", color=BLACK)
                 .scale(0.5)
                 .to_corner(UR)
                 .shift(0.2*LEFT + 0.2*DOWN)
@@ -180,7 +185,7 @@ class StackingRadiiWithAngle(Scene):
 
         # --- Central angle marker: filled wedge from 0 to current θ (small radius for visibility) ---
         # Using Sector for a neat filled angle marker
-        angle_radius = 0.9
+        angle_radius = 0.6
         angle_marker = always_redraw(
             lambda: Sector(
                 arc_center=ORIGIN,
@@ -218,7 +223,9 @@ class StackingRadiiWithAngle(Scene):
         # --- 1 radian definition quick show (optional) ---
         one_rad_arc = Arc(radius=0.6, start_angle=0, angle=1.0, arc_center=ORIGIN, color=RED).set_stroke(width=6)
         one_rad_label = Text("1 radian", color=WHITE).scale(0.5).next_to(one_rad_arc, RIGHT, buff=0.2)
-        self.play(Create(one_rad_arc), FadeIn(one_rad_label, shift=0.1*UP), run_time=0.8)
+        self.play(Create(one_rad_arc), run_time=0.8)
+        self.wait(0.3)
+        self.play(FadeIn(one_rad_label, shift=0.1*UP), run_time=0.8)
         self.wait(0.3)
         self.play(FadeOut(one_rad_arc), FadeOut(one_rad_label), run_time=0.3)
 
@@ -268,9 +275,9 @@ class StackingRadiiWithAngle(Scene):
             tick = tick_at_end(end_angle)
             ticks.add(tick)
             tick_label_pos = ORIGIN + (R + 0.25) * np.array([math.cos(end_angle), math.sin(end_angle), 0])
-            tick_label = Text(f"{k+1} rad").scale(0.4).move_to(tick_label_pos)
+            tick_label = Text(f"{k+1} rad", color="#000000").scale(0.4).move_to(tick_label_pos)
             self.play(FadeIn(tick), FadeIn(tick_label), run_time=0.25)
-            self.play(FadeOut(tick_label), run_time=0.15)
+            
 
             start_angle += unit_angle
 
@@ -296,8 +303,8 @@ class StackingRadiiWithAngle(Scene):
 
         # --- Finale: recolor & print the takeaway ---
         finale_text = Text("Full circle = 2π rad ≈ 6.283").scale(0.6).to_edge(DOWN)
-        self.play(circle.animate.set_stroke(TEAL_A, width=6))
-        self.play(LaggedStart(*[arc.animate.set_color(TEAL_A) for arc in arcs], lag_ratio=0.05, run_time=0.8))
+        self.play(circle.animate.set_stroke(LOGO_BLACK, width=6))
+        self.play(LaggedStart(*[arc.animate.set_color(BLACK) for arc in arcs], lag_ratio=0.05, run_time=0.8))
         self.play(FadeIn(finale_text, shift=0.2*UP), run_time=0.6)
         self.wait(1.0)
 
