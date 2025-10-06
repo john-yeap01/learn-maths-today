@@ -277,46 +277,54 @@ class SegmentNumericWorkedExample(Scene):
 
         # --- Equation text (left corner) ---
         eqn = Text("Area of segment = Area of sector - Area of triangle").set_color(BLACK)
-        eqn.scale(0.7)
+        eqn.scale(0.9)
         eqn.to_corner(DOWN + LEFT)
         self.play(Write(eqn))
 
         # ===========================================================
         # --- Numeric worked example on the right side ---
         # ===========================================================
-        example1 = Text("Given R = 2, θ = 100°").scale(0.6).set_color(BLACK)
+        example1 = Text("Given R = 2, θ = 100°").scale(0.8).set_color(BLACK)
         example1.to_edge(RIGHT, buff=4.0).shift(UP*3)
         self.play(Write(example1))
+        self.wait(0.4)
 
-        step1 = Text("Area of sector = 1/2 R² θ (in radians)").scale(0.6).set_color(BLACK)
+        step1 = Text("Area of sector = 1/2 R² θ (in radians)").scale(0.8).set_color(BLACK)
         step1.next_to(example1, DOWN, aligned_edge=LEFT)
         self.play(Write(step1))
+        self.wait(0.4)
 
-        step2 = Text("= 1/2 × 2² × (100 × π/180)").scale(0.6).set_color(BLACK)
+        step2 = Text("= 1/2 × 2² × (100 × π/180)").scale(0.8).set_color(BLACK)
         step2.next_to(step1, DOWN, aligned_edge=LEFT)
         self.play(TransformMatchingShapes(step1.copy(), step2))
+        self.wait(0.4)
 
         A_sector = 0.5 * R**2 * np.deg2rad(theta_deg)
-        step3 = Text(f"= {A_sector:.3f}").scale(0.6).set_color(BLACK)
+        step3 = Text(f"= {A_sector:.3f}").scale(0.8).set_color(BLACK)
         step3.next_to(step2, DOWN, aligned_edge=LEFT)
         self.play(TransformMatchingShapes(step2.copy(), step3))
+        self.wait(0.4)
 
-        step4 = Text("Area of triangle = 1/2 R² sin θ").scale(0.6).set_color(BLACK)
+        step4 = Text("Area of triangle = 1/2 R² sin θ").scale(0.8).set_color(BLACK)
         step4.next_to(step3, DOWN, aligned_edge=LEFT)
         self.play(Write(step4))
+        self.wait(0.4)
 
-        step5 = Text("= 1/2 × 2² × sin(100°)").scale(0.6).set_color(BLACK)
+        step5 = Text("= 1/2 × 2² × sin(100°)").scale(0.8).set_color(BLACK)
         step5.next_to(step4, DOWN, aligned_edge=LEFT)
         self.play(TransformMatchingShapes(step4.copy(), step5))
+        self.wait(0.4)
 
         A_triangle = 0.5 * R**2 * np.sin(np.deg2rad(theta_deg))
-        step6 = Text(f"= {A_triangle:.3f}").scale(0.6).set_color(BLACK)
+        step6 = Text(f"= {A_triangle:.3f}").scale(0.8).set_color(BLACK)
         step6.next_to(step5, DOWN, aligned_edge=LEFT)
         self.play(TransformMatchingShapes(step5.copy(), step6))
+        self.wait(0.4)
 
         A_segment = A_sector - A_triangle
         final = Text(f"Area of segment = {A_segment:.3f}").scale(0.7).set_color(RED)
         final.next_to(step6, DOWN, aligned_edge=LEFT)
         self.play(Write(final))
+        self.wait(0.4)
 
         self.wait()
