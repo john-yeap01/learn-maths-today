@@ -1,5 +1,6 @@
 from manim import *
 import numpy as np
+from numpy.typing import NDArray
 
 class ExtrudePrism(ThreeDScene):
     def construct(self):
@@ -8,7 +9,7 @@ class ExtrudePrism(ThreeDScene):
         axes = ThreeDAxes()
         self.add(axes)
 
-        h = ValueTracker(0.0)  # extrusion height
+        h = ValueTracker(0)  # extrusion height
 
         base = Square(side_length=2).set_fill(RED, 0.6).set_stroke(RED)
 
