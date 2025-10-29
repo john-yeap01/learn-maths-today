@@ -15,6 +15,7 @@ def unit(v: Iterable[float]) :
     
     return (x/n).astype(np.float64, copy=False)
 
+# returns matrix cross form of a vector
 def _skew(v: Iterable[float]):
     x = np.asarray(v, dtype=float)
     if x.size != 3:
@@ -29,6 +30,7 @@ def _skew(v: Iterable[float]):
 
 
 
+# returns generalised rotation matrix given an axis and an angle around that axis
 def rodrigues(axis: Iterable[float], theta: float):
     k = unit(axis)
     K = _skew(k)
@@ -68,12 +70,6 @@ def se3_about_edge(p0: NDArray[np.float64],
     return R, t
 
 
-class Test(ThreeDScene):
-    def construct(self) -> None:
-        K = _skew([1, 2, 3])
-        assert np.allclose(K.T, -K)
-
-
 class HingePointDemo(ThreeDScene):
     def construct(self):
         self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
@@ -103,7 +99,6 @@ class HingePointDemo(ThreeDScene):
         self.play(theta.animate.set_value(PI/2), run_time=2)  # 0→+90°
         self.play(theta.animate.set_value(0.0), run_time=2)   # back to 0
         dot.clear_updaters()
-
 
 class HingeFaceStepA(ThreeDScene):
     def construct(self):
@@ -224,6 +219,97 @@ class HingeFaceStepC(ThreeDScene):
             return m
 
         child_hinge.add_updater(update_child_hinge)
+
+        def update_child_dot(m: Dot3D, idx: int):
+            R, t = se3_about_edge(p0, p1, theta.get_value())
+            m.move_to((R @ V1[idx]) + t)
+            return m
+        aG.add_updater(lambda m: update_child_dot(m, j0))
+        bG.add_updater(lambda m: update_child_dot(m, j1))
+
+        # animate: 0 → +90° → 0
+        self.play(theta.animate.set_value(PI/2), run_time=2)
+        self.play(theta.animate.set_value(0.0), run_time=2)
+
+        # cleanup
+        face.clear_updaters()
+        child_hinge.clear_updaters()
+        aG.clear_updaters()
+        bG.clear_updaters()
+        self.wait(0.5)
+
+
+class HingeFaceStepD(ThreeDScene):
+    def construct(self):
+        self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
+        self.add(ThreeDAxes())
+
+        # original (flat) geometry
+        F = make_square(1.5, origin=(0.0, 0.0))
+        V0, E = F["V"].copy(), F["E"]          # keep an immutable copy V0
+        i0, i1 = map(int, E[0])
+        p0, p1 = V0[i0], V0[i1]                # hinge endpoints (world-fixed)
+
+        # child geometry (we'll only show its hinge, no face)
+        G = make_square(1.5, origin=(0.0, 0.0))
+        V1, E1 = G["V"].copy(), G["E"].copy()
+        j0, j1 = map(int, E1[2])               # child hinge indices 3->2
+        j0, j1 = j1, j0                        # now direction is 3 -> 2
+        q0, q1 = V1[j0], V1[j1]
+
+        # child face
+        child_face = Polygon(*[tuple(p) for p in V1], color=GREEN, fill_opacity=0.25, stroke_width=2)
+
+        # rotate the child face by -90 first (behind the scenes)
+        R1, t1 = se3_about_edge(q0, q1, -PI/2)
+        V_rot1 = (R1 @ V1.T).T + t1
+        V1 = V_rot1
+        child_face.set_points_as_corners([*map(tuple, V_rot1)])
+        self.add(child_face)
+
+        # (kept for minimal change; not strictly needed)
+        u = unit(q1 - q0)
+        k = unit(p1 - p0)
+
+        # child hinge + dots (initial placement uses V1 directly)
+        child_hinge = Line3D(V1[j0], V1[j1], color=GREEN)
+        aG = Dot3D(V1[j0], color=GREEN)
+        bG = Dot3D(V1[j1], color=GREEN)
+        self.add(child_hinge, aG, bG)
+
+        # draw original parent face + hinge
+        face = Polygon(*[tuple(p) for p in V0], color=BLUE, fill_opacity=0.25, stroke_width=2)
+        hinge = Line3D(p0, p1, color=YELLOW)
+        self.add(face, hinge, Dot3D(p0, color=YELLOW), Dot3D(p1, color=YELLOW))
+
+
+        # --- Rotation Updaters ---
+        theta = ValueTracker(0.0)
+
+        # parent folds about its hinge
+        def update_face(m: Polygon):
+            R, t = se3_about_edge(p0, p1, theta.get_value())
+            V_rot = (R @ V0.T).T + t
+            m.set_points_as_corners([*map(tuple, V_rot)])
+            return m
+        face.add_updater(update_face)
+
+        # child hinge rides along with the *same* parent transform
+        def update_child_hinge(m: Line3D):
+            R, t = se3_about_edge(p0, p1, theta.get_value())
+            P = (R @ V1[[j0, j1]].T).T + t      # uses broadcasting since the V1 points are rows 
+            new_line = Line3D(P[0], P[1], color=GREEN)
+            m.become(new_line)
+            return m
+        
+        def update_child_face(m: Polygon):
+            R, t = se3_about_edge(p0, p1, theta.get_value())
+            V_rot = (R @ V1.T).T + t
+            m.set_points_as_corners([*map(tuple, V_rot)])
+            return m
+
+        child_hinge.add_updater(update_child_hinge)
+        child_face.add_updater(update_child_face)
 
         def update_child_dot(m: Dot3D, idx: int):
             R, t = se3_about_edge(p0, p1, theta.get_value())
