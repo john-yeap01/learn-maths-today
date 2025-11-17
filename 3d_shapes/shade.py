@@ -1,3 +1,4 @@
+# 2d animation for filling a boundary of a 2d shape .
 from manim import *
 import numpy as np
 from numpy.typing import NDArray

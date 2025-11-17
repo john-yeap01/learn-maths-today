@@ -1,3 +1,4 @@
+# Testing python script to get familiar with Manim's 3D functions and quirks
 from manim import *
 from manim import CapStyleType, LineJointType, rate_functions as rf
 from manim import Sector, ValueTracker
@@ -18,7 +19,7 @@ class Axes (ThreeDScene):
         # self.add(axes)
 
 
-
+# 3d axes with a 2d face on the xy plane
 class BaseOnAxes (ThreeDScene):
 
     def construct(self):
@@ -41,7 +42,7 @@ class BaseOnAxes (ThreeDScene):
         self.stop_ambient_camera_rotation()
 
 
-
+# USING THE PRISM OBJECT TO EXTRUDE
 class PrismExtrude (ThreeDScene):
 
     def construct(self):
@@ -70,7 +71,7 @@ class PrismExtrude (ThreeDScene):
 
         
 
-
+# Test extrusion using vertices
 class ExtrudeDemo(ThreeDScene):
     def construct(self):
         axes = ThreeDAxes()

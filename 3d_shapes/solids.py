@@ -1,3 +1,5 @@
+# Creating solid 3D blocks and objects in the 3d space, by combining simpler shapes 
+# (to show the shadow cast on a plane)
 from manim import *
 from manim import CapStyleType, LineJointType, rate_functions as rf
 from manim import Sector, ValueTracker
