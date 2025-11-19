@@ -68,6 +68,7 @@ def se3_about_edge(p0: NDArray[np.float64],
 
 # -----------------------------------------------------------------------------------------------
 
+# Demonstrate how a point moves about a general hinge
 class HingePointDemo(ThreeDScene):
     def construct(self):
         self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
@@ -353,6 +354,7 @@ class Face:
 # Creating a 
 # ---------------------------------------------------------------------
 
+# Creates five faces on the XY plane 
 class FiveSideCube(ThreeDScene):
 
     def construct(self):
@@ -564,7 +566,6 @@ class FiveSideCubeFourFaces(ThreeDScene):
         self.wait(0.5)
 
 
-
 class FullCube(ThreeDScene):
     def construct(self):
         self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
@@ -573,13 +574,19 @@ class FullCube(ThreeDScene):
         s = 1.0
 
         # --- Build flat net geometry ---
-        # vertices and edges 
         VC, EC = make_square(s, (0, 0))      # centre
         VE, EE = make_square(s, (s, 0))      # east
         VN, EN = make_square(s, (0, s))      # north
         VW, EW = make_square(s, (-s, 0))     # west
         VS, ES = make_square(s, (0, -s))     # south
-        VExtra, SExtra = make_square(s, (2*s, 0))
+        VExtra, _ = make_square(s, (2*s, 0)) # extra on the far side of east
+
+        # Base copies (never mutated)
+        VE0    = VE.copy()
+        VN0    = VN.copy()
+        VW0    = VW.copy()
+        VS0    = VS.copy()
+        VExtra0 = VExtra.copy()
 
         # Faces
         centre_face = Face("centre", VC, hinge_edge=None, color=BLUE)
@@ -587,7 +594,7 @@ class FullCube(ThreeDScene):
         north_face  = Face("north",  VN, hinge_edge=(0, 1), color=RED)
         west_face   = Face("west",   VW, hinge_edge=(1, 2), color=PURPLE)
         south_face  = Face("south",  VS, hinge_edge=(2, 3), color=ORANGE)
-        extra_face = Face("extra", VExtra, hinge_edge=(0, 3), color=WHITE)
+        extra_face  = Face("extra",  VExtra, hinge_edge=(0, 3), color=WHITE)
 
         self.add(
             centre_face.poly,
@@ -621,62 +628,77 @@ class FullCube(ThreeDScene):
         s0, s1 = EC[0]  # [0,1]
         pS0, pS1 = VC[s0], VC[s1]
 
-        # Extra hinge
-        extra0, extra1 = EE[1]
-        pExtra0, pExtra1 = VE[extra0], VE[extra1]
+        # Shared edge E–Extra in flat net:
+        # East:  VE[1] -> VE[2] = (2s,0,0) -> (2s,s,0)
+        # Extra: VExtra[0] -> VExtra[3]   = (2s,0,0) -> (2s,s,0)
+        extra_hinge_idx = (0, 3)
 
-        # Optional: draw all hinge lines for debugging
+        # Optional hinge visuals
         hinges = VGroup(
             Line3D(pE0, pE1, color=YELLOW),
             Line3D(pN0, pN1, color=YELLOW),
             Line3D(pW0, pW1, color=YELLOW),
             Line3D(pS0, pS1, color=YELLOW),
-            Line3D(pExtra0, pExtra1, color=BLACK)
         )
         self.add(hinges)
 
-        # Optional: label centre vertices to confirm indices
         labels = VGroup(*[
             Text(str(i), font_size=24).move_to(p + np.array([0, 0, 0.02]))
             for i, p in enumerate(VC)
         ])
         self.add(labels)
 
-        # --- One parameter to fold all side faces at once ---
-        theta = ValueTracker(0.0)
+        # --- Two angles: walls vs lid ---
+        theta = ValueTracker(0.0)  # walls fold from centre
+        phi   = ValueTracker(0.0)  # lid folds from east
+
+        # Helper: parent transform for east wall (centre edge [1,2])
+        def parent_transform(angle: float):
+            return se3_about_edge(pE0, pE1, angle)
 
         # East face folds around centre edge [1,2]
         def update_east(m: Polygon):
-            R, t = se3_about_edge(pE0, pE1, theta.get_value())
-            V_rot = (R @ east_face.V0.T).T + t
+            R, t = parent_transform(theta.get_value())
+            V_rot = (R @ VE0.T).T + t
             m.set_points_as_corners([tuple(p) for p in V_rot])
             return m
 
         # North face folds around centre edge [2,3]
         def update_north(m: Polygon):
             R, t = se3_about_edge(pN0, pN1, theta.get_value())
-            V_rot = (R @ north_face.V0.T).T + t
+            V_rot = (R @ VN0.T).T + t
             m.set_points_as_corners([tuple(p) for p in V_rot])
             return m
 
         # West face folds around centre edge [3,0]
         def update_west(m: Polygon):
             R, t = se3_about_edge(pW0, pW1, theta.get_value())
-            V_rot = (R @ west_face.V0.T).T + t
+            V_rot = (R @ VW0.T).T + t
             m.set_points_as_corners([tuple(p) for p in V_rot])
             return m
 
         # South face folds around centre edge [0,1]
         def update_south(m: Polygon):
             R, t = se3_about_edge(pS0, pS1, theta.get_value())
-            V_rot = (R @ south_face.V0.T).T + t
+            V_rot = (R @ VS0.T).T + t
             m.set_points_as_corners([tuple(p) for p in V_rot])
             return m
-        
+
+        # Extra face = child of east
         def update_extra(m: Polygon):
-            R, t = se3_about_edge(pE0, pE1, theta.get_value())
-            V_rot = (R @ extra_face.V0.T).T + t
-            m.set_points_as_corners([tuple(p) for p in V_rot])
+            # 1) Apply the same transform as east (parent)
+            R_p, t_p = parent_transform(theta.get_value())
+            Vp = (R_p @ VExtra0.T).T + t_p
+
+            # 2) Get the hinge edge E–Extra in world coords after parent transform
+            h0, h1 = extra_hinge_idx
+            H0, H1 = Vp[h0], Vp[h1]
+
+            # 3) Rotate around that hinge by phi
+            R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
+            V_final = (R_c @ Vp.T).T + t_c
+
+            m.set_points_as_corners([tuple(p) for p in V_final])
             return m
 
         east_face.poly.add_updater(update_east)
@@ -685,12 +707,36 @@ class FullCube(ThreeDScene):
         south_face.poly.add_updater(update_south)
         extra_face.poly.add_updater(update_extra)
 
-        # Animate: all four fold up, then back down
+        # Also visualise the child hinge line
+        extra_hinge_line = Line3D(VExtra0[extra_hinge_idx[0]], VExtra0[extra_hinge_idx[1]], color=BLUE)
+        self.add(extra_hinge_line)
+
+        def update_extra_hinge_line(m: Line3D):
+            R_p, t_p = parent_transform(theta.get_value())
+            Vp = (R_p @ VExtra0.T).T + t_p
+            h0, h1 = extra_hinge_idx
+            H0, H1 = Vp[h0], Vp[h1]
+
+            # same child rotation as extra face
+            R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
+            H0_f = R_c @ H0 + t_c
+            H1_f = R_c @ H1 + t_c
+
+            m.become(Line3D(H0_f, H1_f, color=BLUE))
+            return m
+
+        extra_hinge_line.add_updater(update_extra_hinge_line)
+
+        # --- Animate: walls up, then lid down ---
+        # Step 1: fold all walls up (extra follows east, still coplanar with it)
         self.play(theta.animate.set_value(-PI/2), run_time=3)
-        self.play(theta.animate.set_value(0.0),   run_time=3)
+
+        # Step 2: now fold the lid (extra) relative to east
+        self.play(phi.animate.set_value(-PI/2), run_time=3)
 
         # Cleanup
         for f in (east_face, north_face, west_face, south_face, extra_face):
             f.poly.clear_updaters()
+        extra_hinge_line.clear_updaters()
 
         self.wait(0.5)
