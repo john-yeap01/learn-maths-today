@@ -631,7 +631,7 @@ class FullCube(ThreeDScene):
         # Shared edge E–Extra in flat net:
         # East:  VE[1] -> VE[2] = (2s,0,0) -> (2s,s,0)
         # Extra: VExtra[0] -> VExtra[3]   = (2s,0,0) -> (2s,s,0)
-        extra_hinge_idx = (0, 3)
+        extra_hinge_idx = (0, 3)    # edge in the frame of the extra
 
         # Optional hinge visuals
         hinges = VGroup(
@@ -692,13 +692,13 @@ class FullCube(ThreeDScene):
 
             # 2) Get the hinge edge E–Extra in world coords after parent transform
             h0, h1 = extra_hinge_idx
-            H0, H1 = Vp[h0], Vp[h1]
+            H0, H1 = Vp[h0], Vp[h1]         # H0 - H1 defines the moved hinge line
 
             # 3) Rotate around that hinge by phi
             R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
             V_final = (R_c @ Vp.T).T + t_c
 
-            m.set_points_as_corners([tuple(p) for p in V_final])
+            m.set_points_as_corners([tuple(p) for p in V_final])          # set the new vertices of the polygon
             return m
 
         east_face.poly.add_updater(update_east)
@@ -707,22 +707,24 @@ class FullCube(ThreeDScene):
         south_face.poly.add_updater(update_south)
         extra_face.poly.add_updater(update_extra)
 
-        # Also visualise the child hinge line
+        # Also visualise the child hinge line from the extra face reference frame
         extra_hinge_line = Line3D(VExtra0[extra_hinge_idx[0]], VExtra0[extra_hinge_idx[1]], color=BLUE)
         self.add(extra_hinge_line)
 
         def update_extra_hinge_line(m: Line3D):
+
+            # Rotate about the centre-east face edge
             R_p, t_p = parent_transform(theta.get_value())
             Vp = (R_p @ VExtra0.T).T + t_p
             h0, h1 = extra_hinge_idx
             H0, H1 = Vp[h0], Vp[h1]
 
-            # same child rotation as extra face
+            # same child rotation as extra face -- technically dont need this
             R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
             H0_f = R_c @ H0 + t_c
             H1_f = R_c @ H1 + t_c
 
-            m.become(Line3D(H0_f, H1_f, color=BLUE))
+            m.become(Line3D(H0_f, H1_f, color=BLUE))            # set the new points of the line
             return m
 
         extra_hinge_line.add_updater(update_extra_hinge_line)
@@ -740,3 +742,230 @@ class FullCube(ThreeDScene):
         extra_hinge_line.clear_updaters()
 
         self.wait(0.5)
+
+
+
+class TriangularPrism(ThreeDScene):
+    def construct(self):
+        self.set_camera_orientation(phi=70 * DEGREES, theta=45 * DEGREES)
+        self.add(ThreeDAxes())
+
+        s = 1.0       # triangle side length
+        h = 1.0       # prism height (length of rectangular walls)
+
+        # --- Helper: build base equilateral triangle in xy-plane ---
+        # Vertices: A(0,0,0), B(s,0,0), C(s/2, sqrt(3)/2 * s, 0)
+        def make_equilateral_triangle(side: float):
+            A = np.array([0.0, 0.0, 0.0])
+            B = np.array([side, 0.0, 0.0])
+            C = np.array([0.5 * side, np.sqrt(3) / 2 * side, 0.0])
+            V = np.array([A, B, C])
+            E = [(0, 1), (1, 2), (2, 0)]  # AB, BC, CA
+            return V, E
+
+        # --- Helper: make rectangle (wall) from one edge of triangle ---
+        # For CCW triangle, interior is on the left of each directed edge.
+        # Outward normal is "right" side (dy, -dx) / |edge|.
+        def make_wall_from_edge(V_tri: np.ndarray, edge, height: float):
+            i, j = edge
+            P0 = V_tri[i][:2]
+            P1 = V_tri[j][:2]
+            d = P1 - P0
+            dx, dy = d
+            length = np.hypot(dx, dy)
+            if length == 0:
+                raise ValueError("Degenerate edge for wall")
+
+            # outward unit normal (right of edge)
+            u_out = np.array([dy, -dx]) / length
+            Q0 = P0 + u_out * height
+            Q1 = P1 + u_out * height
+
+            # Embed in 3D, z = 0
+            P0_3 = np.array([P0[0], P0[1], 0.0])
+            P1_3 = np.array([P1[0], P1[1], 0.0])
+            Q1_3 = np.array([Q1[0], Q1[1], 0.0])
+            Q0_3 = np.array([Q0[0], Q0[1], 0.0])
+
+            # Order: edge (P0 -> P1), then outer edge (Q1 -> Q0)
+            V_wall = np.array([P0_3, P1_3, Q1_3, Q0_3])
+            E_wall = [(0, 1), (1, 2), (2, 3), (3, 0)]
+            return V_wall, E_wall
+
+        # --- Helper: make lid triangle attached to the outer edge of wall 0 ---
+        # Wall0 vertices: [P0, P1, Q1, Q0], outer edge is (2,3) = Q1->Q0.
+        # We build an equilateral triangle using base Q0-Q1 lying in xy-plane.
+        def make_lid_triangle_from_wall(V_wall0: np.ndarray, side: float):
+            Q1 = V_wall0[2][:2]
+            Q0 = V_wall0[3][:2]
+            L0 = Q0
+            L1 = Q1
+            d = L1 - L0
+            dx, dy = d
+            length = np.hypot(dx, dy)
+            if abs(length - side) > 1e-6:
+                side_eff = length
+            else:
+                side_eff = side
+
+            # Interior of lid on the "outside" of the wall.
+            # Take interior normal to be "left" of edge L0->L1
+            u_int = -np.array([-dy, dx]) / length       # <--- THIS CHOOSES THE SIDE
+
+            h_tri = np.sqrt(3) / 2 * side_eff
+            L2 = (L0 + L1) / 2 + u_int * h_tri         # apex
+
+            L0_3 = np.array([L0[0], L0[1], 0.0])
+            L1_3 = np.array([L1[0], L1[1], 0.0])
+            L2_3 = np.array([L2[0], L2[1], 0.0])
+
+            V_lid = np.array([L0_3, L1_3, L2_3])
+            E_lid = [(0, 1), (1, 2), (2, 0)]
+            lid_hinge = (0, 1)
+            return V_lid, E_lid, lid_hinge
+
+
+        # --- Build flat net geometry ---
+        V_base, E_base = make_equilateral_triangle(s)
+
+        # 3 walls, each from one edge of the base triangle
+        V_wall0, E_wall0 = make_wall_from_edge(V_base, E_base[0], h)  # edge AB
+        V_wall1, E_wall1 = make_wall_from_edge(V_base, E_base[1], h)  # edge BC
+        V_wall2, E_wall2 = make_wall_from_edge(V_base, E_base[2], h)  # edge CA
+
+        # Lid: triangle attached to the outer edge of wall0
+        V_lid, E_lid, lid_hinge_idx = make_lid_triangle_from_wall(V_wall0, s)
+
+        # Base copies (never mutated)
+        V_base0   = V_base.copy()
+        V_wall0_0 = V_wall0.copy()
+        V_wall1_0 = V_wall1.copy()
+        V_wall2_0 = V_wall2.copy()
+        V_lid0    = V_lid.copy()
+
+        # Faces
+        base_face  = Face("base",  V_base,   hinge_edge=None,      color=BLUE)
+        wall0_face = Face("wall0", V_wall0,  hinge_edge=(0, 1),    color=GREEN)
+        wall1_face = Face("wall1", V_wall1,  hinge_edge=(0, 1),    color=RED)
+        wall2_face = Face("wall2", V_wall2,  hinge_edge=(0, 1),    color=PURPLE)
+        lid_face   = Face("lid",   V_lid,    hinge_edge=lid_hinge_idx, color=YELLOW)
+
+        self.add(
+            base_face.poly,
+            wall0_face.poly,
+            wall1_face.poly,
+            wall2_face.poly,
+            lid_face.poly
+        )
+
+        # --- Hinge lines on the base triangle ---
+        # Base edges: E_base[0]=(0,1), E_base[1]=(1,2), E_base[2]=(2,0)
+        (a0, a1) = E_base[0]
+        (b0, b1) = E_base[1]
+        (c0, c1) = E_base[2]
+
+        pA0, pA1 = V_base0[a0], V_base0[a1]
+        pB0, pB1 = V_base0[b0], V_base0[b1]
+        pC0, pC1 = V_base0[c0], V_base0[c1]
+
+        hinges = VGroup(
+            Line3D(pA0, pA1, color=WHITE),
+            Line3D(pB0, pB1, color=WHITE),
+            Line3D(pC0, pC1, color=WHITE),
+        )
+        self.add(hinges)
+
+        # Optional labels on base vertices
+        labels = VGroup(*[
+            Text(str(i), font_size=24).move_to(p + np.array([0, 0, 0.02]))
+            for i, p in enumerate(V_base0)
+        ])
+        self.add(labels)
+
+        # --- Two angles: walls vs lid ---
+        theta = ValueTracker(0.0)   # 3 walls fold from base
+        phi   = ValueTracker(0.0)   # lid folds from wall0
+
+        # Parent transform for wall0: around base edge E_base[0] (A-B)
+        def parent_transform(angle: float):
+            return se3_about_edge(pA0, pA1, angle)
+
+        # --- Updaters for walls ---
+        def update_wall0(m: Polygon):
+            R, t = parent_transform(theta.get_value())
+            V_rot = (R @ V_wall0_0.T).T + t
+            m.set_points_as_corners([tuple(p) for p in V_rot])
+            return m
+
+        def update_wall1(m: Polygon):
+            R, t = se3_about_edge(pB0, pB1, theta.get_value())
+            V_rot = (R @ V_wall1_0.T).T + t
+            m.set_points_as_corners([tuple(p) for p in V_rot])
+            return m
+
+        def update_wall2(m: Polygon):
+            R, t = se3_about_edge(pC0, pC1, theta.get_value())
+            V_rot = (R @ V_wall2_0.T).T + t
+            m.set_points_as_corners([tuple(p) for p in V_rot])
+            return m
+
+        # --- Lid = child of wall0 ---
+        def update_lid(m: Polygon):
+            # 1) Apply same transform as wall0 (parent)
+            R_p, t_p = parent_transform(theta.get_value())
+            Vp = (R_p @ V_lid0.T).T + t_p
+
+            # 2) Hinge edge in lid frame after parent transform
+            h0, h1 = lid_hinge_idx  # should be (0,1)
+            H0, H1 = Vp[h0], Vp[h1]
+
+            # 3) Rotate around that hinge by phi
+            R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
+            V_final = (R_c @ Vp.T).T + t_c
+
+            m.set_points_as_corners([tuple(p) for p in V_final])
+            return m
+
+        wall0_face.poly.add_updater(update_wall0)
+        wall1_face.poly.add_updater(update_wall1)
+        wall2_face.poly.add_updater(update_wall2)
+        lid_face.poly.add_updater(update_lid)
+
+        # Visualise the lid hinge line
+        lid_hinge_line = Line3D(V_lid0[lid_hinge_idx[0]], V_lid0[lid_hinge_idx[1]], color=YELLOW)
+        self.add(lid_hinge_line)
+
+        def update_lid_hinge_line(m: Line3D):
+            # Same transforms as lid
+            R_p, t_p = parent_transform(theta.get_value())
+            Vp = (R_p @ V_lid0.T).T + t_p
+            h0, h1 = lid_hinge_idx
+            H0, H1 = Vp[h0], Vp[h1]
+
+            R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
+            H0_f = R_c @ H0 + t_c
+            H1_f = R_c @ H1 + t_c
+
+            m.become(Line3D(H0_f, H1_f, color=YELLOW))
+            return m
+
+        lid_hinge_line.add_updater(update_lid_hinge_line)
+
+        # --- Animate: walls up, then lid down ---
+        self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
+        self.begin_ambient_camera_rotation(rate=0.5)
+
+        # Step 1: fold all walls up from the base
+        self.play(theta.animate.set_value(-PI / 2), run_time=3)
+
+        # Step 2: fold the lid relative to wall0
+        self.play(phi.animate.set_value(-PI / 2), run_time=3)
+
+        # Cleanup
+        for f in (wall0_face, wall1_face, wall2_face, lid_face):
+            f.poly.clear_updaters()
+        lid_hinge_line.clear_updaters()
+
+        self.wait(0.5)
+
+        self.stop_ambient_camera_rotation()
