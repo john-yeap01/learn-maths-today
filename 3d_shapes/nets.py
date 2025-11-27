@@ -969,3 +969,199 @@ class TriangularPrism(ThreeDScene):
         self.wait(0.5)
 
         self.stop_ambient_camera_rotation()
+
+
+
+
+
+from manim import *
+import numpy as np
+
+class CylinderWithTwoLids(ThreeDScene):
+    def construct(self):
+        self.set_camera_orientation(phi=70 * DEGREES, theta=45 * DEGREES)
+        self.add(ThreeDAxes())
+
+        R = 1.0          # cylinder radius
+        H = 2.0          # cylinder height
+        L = 2 * PI * R   # rectangle width = circumference
+        N = 40           # number of vertical panels
+
+        alpha = ValueTracker(0.0)  # roll side
+        beta  = ValueTracker(0.0)  # fold lids
+
+        panels = VGroup()
+        dx = L / N
+
+        # --- Flat sheet in xy-plane, centred in x ---
+        for i in range(N):
+            x0 = -L / 2 + i * dx
+            x1 = -L / 2 + (i + 1) * dx
+
+            v0 = np.array([x0, 0.0, 0.0])
+            v1 = np.array([x1, 0.0, 0.0])
+            v2 = np.array([x1, H, 0.0])
+            v3 = np.array([x0, H, 0.0])
+
+            poly = Polygon(
+                v0, v1, v2, v3,
+                color=BLUE,
+                fill_color=BLUE,
+                fill_opacity=0.7,
+                stroke_width=0.5,
+            )
+            poly.base_vertices = np.array([v0, v1, v2, v3])
+            panels.add(poly)
+
+        self.add(panels)
+
+        # Cylinder axis (for reference)
+        axis_line = Line3D(
+            start=[0, -0.5, 0],
+            end=[0, H + 0.5, 0],
+            color=YELLOW,
+        )
+        self.add(axis_line)
+
+        # --- Lids: start flat in xy-plane, above and below the sheet ---
+        disc_samples = 80
+        angles = np.linspace(0, 2 * PI, disc_samples, endpoint=False)
+
+        # TOP lid (flat position)
+        top_center_flat = np.array([0.0, H + R + 0.2, 0.0])
+        top_lid = VMobject(
+            stroke_color=YELLOW,
+            stroke_width=2,
+            fill_color=YELLOW,
+            fill_opacity=0.7,
+        )
+
+        top_base_pts = []
+        top_cap_pts  = []
+
+        for a in angles:
+            # flat net pos
+            x_flat = top_center_flat[0] + R * np.cos(a)
+            y_flat = top_center_flat[1] + R * np.sin(a)
+            top_base_pts.append(np.array([x_flat, y_flat, 0.0]))
+
+            # cap pos: circle in plane y = H
+            x_cap = R * np.cos(a)
+            y_cap = H
+            z_cap = R * np.sin(a)
+            top_cap_pts.append(np.array([x_cap, y_cap, z_cap]))
+
+        top_base_pts.append(top_base_pts[0])
+        top_cap_pts.append(top_cap_pts[0])
+
+        top_base_pts = np.array(top_base_pts)
+        top_cap_pts  = np.array(top_cap_pts)
+
+        top_lid.set_points_smoothly(top_base_pts)
+        top_lid.base_points = top_base_pts
+        top_lid.cap_points  = top_cap_pts
+
+        self.add(top_lid)
+
+        # BOTTOM lid (flat position)
+        bottom_center_flat = np.array([0.0, -R - 0.2, 0.0])
+        bottom_lid = VMobject(
+            stroke_color=YELLOW,
+            stroke_width=2,
+            fill_color=YELLOW,
+            fill_opacity=0.7,
+        )
+
+        bottom_base_pts = []
+        bottom_cap_pts  = []
+
+        for a in angles:
+            # flat net pos
+            x_flat = bottom_center_flat[0] + R * np.cos(a)
+            y_flat = bottom_center_flat[1] + R * np.sin(a)
+            bottom_base_pts.append(np.array([x_flat, y_flat, 0.0]))
+
+            # cap pos: circle in plane y = 0
+            x_cap = R * np.cos(a)
+            y_cap = 0.0
+            z_cap = R * np.sin(a)
+            bottom_cap_pts.append(np.array([x_cap, y_cap, z_cap]))
+
+        bottom_base_pts.append(bottom_base_pts[0])
+        bottom_cap_pts.append(bottom_cap_pts[0])
+
+        bottom_base_pts = np.array(bottom_base_pts)
+        bottom_cap_pts  = np.array(bottom_cap_pts)
+
+        bottom_lid.set_points_smoothly(bottom_base_pts)
+        bottom_lid.base_points = bottom_base_pts
+        bottom_lid.cap_points  = bottom_cap_pts
+
+        self.add(bottom_lid)
+
+        # --- Mapping: flat sheet -> symmetric rolled cylinder ---
+        def flat_to_cylinder_coord(p_flat):
+            x, y, z = p_flat
+            u = x / (L / 2)                # u in [-1, 1]
+            theta_final = PI * (1.0 + u)   # u=-1->0, u=0->π, u=1->2π
+            Xc = R * np.cos(theta_final)
+            Zc = R * np.sin(theta_final)
+            return np.array([Xc, y, Zc])
+
+        def map_flat_to_cylinder(p_flat, t):
+            p_cyl = flat_to_cylinder_coord(p_flat)
+            return (1 - t) * p_flat + t * p_cyl
+
+        # --- Updaters: side panels ---
+        for poly in panels:
+            base = poly.base_vertices.copy()
+
+            def updater(m, base_vertices=base):
+                t = alpha.get_value()
+                new_vertices = [map_flat_to_cylinder(v, t) for v in base_vertices]
+                m.become(Polygon(
+                    *new_vertices,
+                    color=BLUE,
+                    fill_color=BLUE,
+                    fill_opacity=0.7,
+                    stroke_width=0.5,
+                ))
+                return m
+
+            poly.add_updater(updater)
+
+        # --- Updaters: lids (both use the same beta) ---
+        def lid_updater_top(m: VMobject):
+            t = beta.get_value()
+            pts = (1 - t) * m.base_points + t * m.cap_points
+            m.set_points_smoothly(pts)
+            return m
+
+        def lid_updater_bottom(m: VMobject):
+            t = beta.get_value()
+            pts = (1 - t) * m.base_points + t * m.cap_points
+            m.set_points_smoothly(pts)
+            return m
+
+        top_lid.add_updater(lid_updater_top)
+        bottom_lid.add_updater(lid_updater_bottom)
+
+        # --- Animation ---
+        self.wait(1)  # flat net with two lids
+
+        self.begin_ambient_camera_rotation(rate=0.2)
+
+        # 1) roll side into cylinder
+        self.play(alpha.animate.set_value(1.0), run_time=4, rate_func=smooth)
+
+        # 2) fold both lids into top and bottom caps
+        self.play(beta.animate.set_value(1.0), run_time=3, rate_func=smooth)
+
+        self.wait(2)
+        self.stop_ambient_camera_rotation()
+
+        for p in panels:
+            p.clear_updaters()
+        top_lid.clear_updaters()
+        bottom_lid.clear_updaters()
+        self.wait(0.5)
