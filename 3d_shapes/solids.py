@@ -1,79 +1,102 @@
-# Creating solid 3D blocks and objects in the 3d space, by combining simpler shapes 
-# (to show the shadow cast on a plane)
 from manim import *
 from manim import CapStyleType, LineJointType, rate_functions as rf
 from manim import Sector, ValueTracker
 from manim import Text
 import numpy as np
 
-class Basic (ThreeDScene):
-    def construct(self):
-        axes = ThreeDAxes()
-        self.add(axes)
 
-        sphere = Sphere (radius=1, color=BLUE)
-        self.add(sphere)
-
-        self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
-
-
-        # EITHER rotate the objects...
-        # self.play(Rotate(VGroup(axes, sphere), angle=PI/4, axis=OUT, run_time=2))
-
-        self.play(Rotate(VGroup(axes, sphere), angle=PI/4, axis=OUT, run_time=2))
-        self.wait(2)
-        # ...OR rotate the camera (more natural for 3D)
-        self.begin_ambient_camera_rotation(rate=0.2)
-        self.wait(2)
-        self.stop_ambient_camera_rotation()
-
-        self.play(FadeOut(sphere))
-
-
-        group = VGroup(*[Dot().shift(RIGHT*i) for i in range(5)])
-        group.arrange(RIGHT, buff=0.5)
-        self.add(group)
-
-
-
-def make_box(size: tuple[float, float, float], 
+def make_box(size: tuple[float, float, float],
              center: tuple[float, float, float],
              color: str = "#c06") -> Cube:
     lx, ly, lz = size
 
-    box = Cube(side_length=1.0, color=color, fill_opacity=0.6)
-
+    box = Cube(side_length=1.0)
     box.stretch_to_fit_depth(ly)
     box.stretch_to_fit_height(lz)
     box.stretch_to_fit_width(lx)
 
+    # Solid fill, no individual edges
+    box.set_fill(color=color, opacity=1.0)
+    box.set_stroke(width=0)
+
     box.move_to(center)
     return box
 
-
-class Compound (ThreeDScene):
+class Compound(ThreeDScene):
     def construct(self):
-        
         axes = ThreeDAxes()
         self.add(axes)
 
         self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
 
-        box1 = make_box((2,3,3), (0,0,0))
+        eps = 1e-3  # tiny offset
 
-        self.add(box1)
+        box1 = make_box((4, 2, 2), (0, 0, 0))
+        # lift the top block very slightly so contact faces don't coincide
+        box2 = make_box((2, 2, 2), (-1, 0, 2 + eps))
 
-        self.play(Rotate(VGroup(axes, box1), angle=-75*DEGREES, axis=OUT, run_time=1))
+        compound = VGroup(box1, box2)
 
-        self.play(Rotate(VGroup(axes, box1), angle=3* (PI/2), axis=OUT, run_time=1))
+        # Optional outline
+        compound.set_stroke(color=BLACK, width=1)
 
+        self.add(compound)
+        self.move_camera(
+            phi=90 * DEGREES,
+            theta=0 * DEGREES,
+            run_time=2
+        )
+        self.wait(1)
         self.wait(2)
 
-        self.play(Rotate(VGroup(axes, box1), angle=PI/2, axis=OUT, run_time=1))
 
+class CompoundViews(ThreeDScene):
+    def construct(self):
+        axes = ThreeDAxes()
 
-        # self.begin_ambient_camera_rotation(rate=0.2)
-        # self.wait(2)
-        # self.stop_ambient_camera_rotation()
+        # Build L-shaped solid
+        eps = 1e-3
+        base = make_box((4, 2, 2), (0, 0, 0))
+        top  = make_box((2, 2, 2), (-1, 0, 2 + eps))
+        solid = VGroup(base, top)
 
+        self.add(axes, solid)
 
+        # Start in a 3/4 perspective
+        self.set_camera_orientation(phi=70 * DEGREES, theta=45 * DEGREES)
+        self.wait(1)
+
+        # -------- FRONT VIEW --------
+        front_label = Text("Front view").scale(0.6).to_edge(DOWN)
+        self.play(
+            LaggedStart(
+                FadeIn(front_label),
+                run_time=0.5
+            )
+        )
+        self.move_camera(
+            phi=90 * DEGREES,
+            theta=0 * DEGREES,
+            run_time=2
+        )
+        self.wait(1)
+
+        # -------- RIGHT SIDE VIEW --------
+        side_label = Text("Right side view").scale(0.6).to_edge(DOWN)
+        self.play(Transform(front_label, side_label))
+        self.move_camera(
+            phi=90 * DEGREES,
+            theta=90 * DEGREES,
+            run_time=2
+        )
+        self.wait(1)
+
+        # -------- TOP VIEW --------
+        top_label = Text("Top view").scale(0.6).to_edge(DOWN)
+        self.play(Transform(front_label, top_label))
+        self.move_camera(
+            phi=0 * DEGREES,
+            theta=0 * DEGREES,
+            run_time=2
+        )
+        self.wait(1)

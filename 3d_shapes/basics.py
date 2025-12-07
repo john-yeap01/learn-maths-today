@@ -1,4 +1,5 @@
 # Testing python script to get familiar with Manim's 3D functions and quirks
+# Scenes for the basic prisms
 from manim import *
 from manim import CapStyleType, LineJointType, rate_functions as rf
 from manim import Sector, ValueTracker
@@ -6,17 +7,41 @@ from manim import Text
 import numpy as np
 
 
+# axes = ThreeDAxes()
 # self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
+# self.begin_ambient_camera_rotation(rate=0.2)
 
 
-class Axes (ThreeDScene):
 
+class RectPrism(ThreeDScene):
     def construct(self):
         axes = ThreeDAxes()
         self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
+        self.begin_ambient_camera_rotation(rate=0.2)
 
-        self.play(FadeIn(axes))
-        # self.add(axes)
+        prism = Prism((3,2,4))
+
+        self.add(axes, prism)
+
+        self.begin_ambient_camera_rotation(rate=0.2)
+
+        self.wait(2)
+
+        self.stop_ambient_camera_rotation()
+
+
+class CreateCylinder(ThreeDScene):
+    def construct(self):
+
+        axes = ThreeDAxes()
+        self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
+        self.begin_ambient_camera_rotation(rate=0.2)
+
+        cylinder = Cylinder(2, 5, [1, 2, 0])
+
+        self.add(cylinder)
+        self.wait(2)
+
 
 
 # 3d axes with a 2d face on the xy plane
@@ -107,4 +132,30 @@ class ExtrudeDemo(ThreeDScene):
         self.wait(1)
         self.stop_ambient_camera_rotation()
 
+
+
+
+
+
+
+# USING THE PRISM OBJECT TO EXTRUDE
+class CylinderExtrude (ThreeDScene):
+
+    def construct(self):
+        axes = ThreeDAxes()
+        self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
+        self.begin_ambient_camera_rotation(rate=0.2)
+
+        side = 2.0
+        h = ValueTracker(0.01)  # start almost flat
+
+        cylinder = always_redraw(
+            lambda: Cylinder(radius=1, height=h.get_value(), direction=[1,2,0] )
+                    .set_fill(BLUE, 0.6).set_stroke(WHITE, 1)
+                    .move_to([0, 0, h.get_value()/2])
+        )
+
+        self.add(axes, cylinder)
+        self.play(h.animate.set_value(3.0), run_time=2)
+        self.wait(1)
 
