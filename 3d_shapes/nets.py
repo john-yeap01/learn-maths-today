@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 # -----------------------------------------------------------------------------------------------
 # HELPER FUNCTIONS 
 # -----------------------------------------------------------------------------------------------
-def unit(v: Iterable[float]):
+def unit_vec(v: Iterable[float]):
     x = np.asarray(v, dtype=float).reshape(3)
 
     if x.size != 3:
@@ -32,7 +32,7 @@ def _skew(v: Iterable[float]):
 
 # returns 3 by 3 generalised rotation matrix given an axis and an angle around that axis
 def rodrigues(axis: Iterable[float], theta: float):
-    k = unit(axis)
+    k = unit_vec(axis)
     K = _skew(k)
 
     s = float(np.sin(theta))
@@ -181,8 +181,8 @@ class HingeFaceStepC(ThreeDScene):
         q0, q1 = V1[j0], V1[j1]
 
         # (kept for minimal change; not strictly needed)
-        u = unit(q1 - q0)
-        k = unit(p1 - p0)
+        u = unit_vec(q1 - q0)
+        k = unit_vec(p1 - p0)
 
         # child hinge + dots (initial placement uses V1 directly)
         child_hinge = Line3D(V1[j0], V1[j1], color=GREEN)
@@ -264,8 +264,8 @@ class HingeFaceStepD(ThreeDScene):
         self.add(child_face)
 
         # (kept for minimal change; not strictly needed)
-        u = unit(q1 - q0)
-        k = unit(p1 - p0)
+        u = unit_vec(q1 - q0)
+        k = unit_vec(p1 - p0)
 
         # child hinge + dots (initial placement uses V1 directly)
         child_hinge = Line3D(V1[j0], V1[j1], color=GREEN)
@@ -571,7 +571,7 @@ class FullCube(ThreeDScene):
         self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
         self.add(ThreeDAxes())
 
-        s = 1.0
+        s = 2.0
 
         # --- Build flat net geometry ---
         VC, EC = make_square(s, (0, 0))      # centre
@@ -731,10 +731,10 @@ class FullCube(ThreeDScene):
 
         # --- Animate: walls up, then lid down ---
         # Step 1: fold all walls up (extra follows east, still coplanar with it)
-        self.play(theta.animate.set_value(-PI/2), run_time=3)
+        self.play(theta.animate.set_value(-PI/2), run_time=10)
 
         # Step 2: now fold the lid (extra) relative to east
-        self.play(phi.animate.set_value(-PI/2), run_time=3)
+        self.play(phi.animate.set_value(-PI/2), run_time=10)
 
         # Cleanup
         for f in (east_face, north_face, west_face, south_face, extra_face):
@@ -776,7 +776,7 @@ class TriangularPrism(ThreeDScene):
             if length == 0:
                 raise ValueError("Degenerate edge for wall")
 
-            # outward unit normal (right of edge)
+            # outward unit_vec normal (right of edge)
             u_out = np.array([dy, -dx]) / length
             Q0 = P0 + u_out * height
             Q1 = P1 + u_out * height
@@ -1164,4 +1164,312 @@ class CylinderWithTwoLids(ThreeDScene):
             p.clear_updaters()
         top_lid.clear_updaters()
         bottom_lid.clear_updaters()
+        self.wait(0.5)
+
+
+class LShapedNetFold(ThreeDScene):
+    """
+    Net layout (side length s, in XY plane):
+
+        [T-blue]
+ [L-yellow][C1-green]
+        [C2-red root]
+        [C3-purple][R-white]
+
+    - C2 is the root (fixed)
+    - C1 folds up from C2
+    - T folds up from C1
+    - L hinges from C1 (NOT from T)
+    - C3 folds down from C2
+    - R hinges from C3
+    """
+    def construct(self):
+        self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
+        self.add(ThreeDAxes())
+
+        s = 2.0
+
+        # --- Squares in the flat net ---
+        VC2, _ = make_square(s, (0, 0))      # root
+        VC1, _ = make_square(s, (0, s))      # above root
+        VT,  _ = make_square(s, (0, 2*s))    # above C1
+        VC3, _ = make_square(s, (0, -s))     # below root
+
+        # Yellow flap now attaches to the LEFT of C1 (not left of T)
+        VL,  _ = make_square(s, (-s, s))
+
+        # Right flap attaches to the RIGHT of C3
+        VR,  _ = make_square(s, ( s, -s))
+
+        # Immutable copies
+        VC2_0 = VC2.copy()
+        VC1_0 = VC1.copy()
+        VT0   = VT.copy()
+        VC3_0 = VC3.copy()
+        VL0   = VL.copy()
+        VR0   = VR.copy()
+
+        # Polys
+        poly_T  = Polygon(*[tuple(p) for p in VT0],   color=BLUE,   fill_opacity=0.25)
+        poly_C1 = Polygon(*[tuple(p) for p in VC1_0], color=GREEN,  fill_opacity=0.25)
+        poly_C2 = Polygon(*[tuple(p) for p in VC2_0], color=RED,    fill_opacity=0.25)  # root
+        poly_C3 = Polygon(*[tuple(p) for p in VC3_0], color=PURPLE, fill_opacity=0.25)
+        poly_L  = Polygon(*[tuple(p) for p in VL0],   color=YELLOW, fill_opacity=0.25)
+        poly_R  = Polygon(*[tuple(p) for p in VR0],   color=WHITE,  fill_opacity=0.25)
+
+        self.add(poly_T, poly_C1, poly_C2, poly_C3, poly_L, poly_R)
+
+        # --- Hinge lines (flat reference) ---
+        # C2–C1 hinge: top edge of C2 = 3 -> 2
+        pC2C1_0, pC2C1_1 = VC2_0[3], VC2_0[2]
+
+        # C2–C3 hinge: bottom edge of C2 = 0 -> 1
+        pC2C3_0, pC2C3_1 = VC2_0[0], VC2_0[1]
+
+        theta = ValueTracker(0.0)  # fold column
+        phi   = ValueTracker(0.0)  # fold flaps
+        eta = ValueTracker(0.0)
+
+        # --- Updaters ---
+
+        # C1 folds about C2–C1
+        def update_C1(m: Polygon):
+            R, t = se3_about_edge(pC2C1_0, pC2C1_1, theta.get_value())
+            V_rot = (R @ VC1_0.T).T + t
+            m.set_points_as_corners([tuple(p) for p in V_rot])
+            return m
+
+        # T is child of C1: follow theta, then hinge about C1–T top edge by phi
+        def update_T(m: Polygon):
+            R_p, t_p = se3_about_edge(pC2C1_0, pC2C1_1, theta.get_value())
+            VC1_p = (R_p @ VC1_0.T).T + t_p
+            VT_p  = (R_p @ VT0.T).T   + t_p
+
+            # hinge line is top edge of C1: 3 -> 2 (in world after parent)
+            H0, H1 = VC1_p[3], VC1_p[2]
+            R_c, t_c = se3_about_edge(H0, H1, eta.get_value())
+            V_final = (R_c @ VT_p.T).T + t_c
+
+            m.set_points_as_corners([tuple(p) for p in V_final])
+            return m
+
+        # L is child of C1: follow theta, then hinge about LEFT edge of C1 by phi
+        def update_L(m: Polygon):
+            R_p, t_p = se3_about_edge(pC2C1_0, pC2C1_1, theta.get_value())
+            VC1_p = (R_p @ VC1_0.T).T + t_p
+            VL_p  = (R_p @ VL0.T).T   + t_p
+
+            # left edge of C1: 3 -> 0
+            H0, H1 = VC1_p[3], VC1_p[0]
+            R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
+            V_final = (R_c @ VL_p.T).T + t_c
+
+            m.set_points_as_corners([tuple(p) for p in V_final])
+            return m
+
+        # C3 folds about C2–C3 (opposite direction)
+        def update_C3(m: Polygon):
+            R, t = se3_about_edge(pC2C3_0, pC2C3_1, -theta.get_value())
+            V_rot = (R @ VC3_0.T).T + t
+            m.set_points_as_corners([tuple(p) for p in V_rot])
+            return m
+
+        # R is child of C3: follow -theta, then hinge about RIGHT edge of C3 by phi
+        def update_R(m: Polygon):
+            R_p, t_p = se3_about_edge(pC2C3_0, pC2C3_1, -theta.get_value())
+            VC3_p = (R_p @ VC3_0.T).T + t_p
+            VR_p  = (R_p @ VR0.T).T   + t_p
+
+            # right edge of C3: 1 -> 2
+            H0, H1 = VC3_p[1], VC3_p[2]
+            R_c, t_c = se3_about_edge(H0, H1, phi.get_value())
+            V_final = (R_c @ VR_p.T).T + t_c
+
+            m.set_points_as_corners([tuple(p) for p in V_final])
+            return m
+
+        poly_C1.add_updater(update_C1)
+        poly_T.add_updater(update_T)
+        poly_L.add_updater(update_L)
+        poly_C3.add_updater(update_C3)
+        poly_R.add_updater(update_R)
+
+        # --- Animate ---
+        self.play(theta.animate.set_value(PI/2), run_time=5)
+        self.play(phi.animate.set_value(-PI/2),   run_time=5)
+        self.play(eta.animate.set_value(PI/2), run_time=5)
+
+        # optional unfold
+        self.play(phi.animate.set_value(0.0), run_time=3)
+        self.play(theta.animate.set_value(0.0), run_time=3)
+        self.play(eta.animate.set_value(0.0), run_time=3)
+
+
+        for p in (poly_C1, poly_T, poly_L, poly_C3, poly_R):
+            p.clear_updaters()
+
+        self.wait(0.5)
+
+
+
+# ----------------------------
+# Rect helper (like make_square)
+# ----------------------------
+def make_rect(width: float, height: float, origin=(0.0, 0.0)):
+    ox, oy = origin
+    w = float(width)
+    h = float(height)
+    V = np.array([
+        [ox + 0, oy + 0, 0.0],
+        [ox + w, oy + 0, 0.0],
+        [ox + w, oy + h, 0.0],
+        [ox + 0, oy + h, 0.0],
+    ], dtype=np.float64)
+    E = np.array([[0,1],[1,2],[2,3],[3,0]], dtype=np.int32)
+    return V, E
+
+# ----------------------------
+# Your hinge math (assumed already in file):
+# - unit_vec
+# - _skew
+# - rodrigues
+# - se3_about_edge
+# ----------------------------
+
+class CuboidNetFold(ThreeDScene):
+    def construct(self):
+        self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
+        self.add(ThreeDAxes())
+
+        # Cuboid dimensions
+        l = 3.0   # length (x direction on base)
+        w = 2.0   # width  (y direction on base)
+        h = 1.5   # height (wall height)
+
+        # ----------------------------
+        # Build flat net in XY plane
+        # Layout:
+        #   north (l×h)
+        # west (h×w)  base (l×w)  east (h×w)  top (l×w)
+        #   south (l×h)
+        # ----------------------------
+
+        V_base, E_base   = make_rect(l, w, origin=(0, 0))
+        V_east, _        = make_rect(h, w, origin=(l, 0))
+        V_west, _        = make_rect(h, w, origin=(-h, 0))
+        V_north, _       = make_rect(l, h, origin=(0, w))
+        V_south, _       = make_rect(l, h, origin=(0, -h))
+        V_top, _         = make_rect(l, w, origin=(l + h, 0))  # attached to outer edge of east
+
+        # Immutable copies
+        V_base0  = V_base.copy()
+        V_east0  = V_east.copy()
+        V_west0  = V_west.copy()
+        V_north0 = V_north.copy()
+        V_south0 = V_south.copy()
+        V_top0   = V_top.copy()
+
+        # Polys
+        base  = Polygon(*map(tuple, V_base0),  color=BLUE,   fill_opacity=0.25)
+        east  = Polygon(*map(tuple, V_east0),  color=GREEN,  fill_opacity=0.25)
+        west  = Polygon(*map(tuple, V_west0),  color=PURPLE, fill_opacity=0.25)
+        north = Polygon(*map(tuple, V_north0), color=RED,    fill_opacity=0.25)
+        south = Polygon(*map(tuple, V_south0), color=ORANGE, fill_opacity=0.25)
+        top   = Polygon(*map(tuple, V_top0),   color=YELLOW, fill_opacity=0.25)
+
+        self.add(base, east, west, north, south, top)
+
+        # ----------------------------
+        # Hinge lines on BASE (world-fixed)
+        # base verts:
+        # 0:(0,0), 1:(l,0), 2:(l,w), 3:(0,w)
+        # ----------------------------
+        pE0, pE1 = V_base0[1], V_base0[2]  # right edge: 1->2 (east wall)
+        pW0, pW1 = V_base0[0], V_base0[3]  # left edge: 0->3 (west wall)
+        pN0, pN1 = V_base0[3], V_base0[2]  # top edge:  3->2 (north wall)
+        pS0, pS1 = V_base0[0], V_base0[1]  # bottom:    0->1 (south wall)
+
+        # trackers
+        theta = ValueTracker(0.0)  # walls up/down
+        phi   = ValueTracker(0.0)  # top lid close/open (child of east)
+
+        # ----------------------------
+        # Updaters for walls
+        # Choose signs so they fold "up" (positive z) nicely.
+        # If any face folds the wrong way, flip the sign on its angle.
+        # ----------------------------
+        def upd_east(m: Polygon):
+            R, t = se3_about_edge(pE0, pE1, -theta.get_value())
+            V = (R @ V_east0.T).T + t
+            m.set_points_as_corners(list(map(tuple, V)))
+            return m
+
+        def upd_west(m: Polygon):
+            R, t = se3_about_edge(pW0, pW1, theta.get_value())
+            V = (R @ V_west0.T).T + t
+            m.set_points_as_corners(list(map(tuple, V)))
+            return m
+
+        def upd_north(m: Polygon):
+            R, t = se3_about_edge(pN0, pN1, theta.get_value())
+            V = (R @ V_north0.T).T + t
+            m.set_points_as_corners(list(map(tuple, V)))
+            return m
+
+        def upd_south(m: Polygon):
+            R, t = se3_about_edge(pS0, pS1, -theta.get_value())
+            V = (R @ V_south0.T).T + t
+            m.set_points_as_corners(list(map(tuple, V)))
+            return m
+
+        # ----------------------------
+        # Top face is a CHILD of east wall:
+        # 1) move with east wall (parent)
+        # 2) then rotate about the east wall's OUTER edge (x = l+h)
+        # In top-face local vertices, the hinge is its LEFT edge: 0 -> 3
+        # ----------------------------
+        top_hinge_idx = (0, 3)
+
+        def upd_top(m: Polygon):
+            # parent = east wall transform
+            R_p, t_p = se3_about_edge(pE0, pE1, -theta.get_value())
+            Vp = (R_p @ V_top0.T).T + t_p
+
+            # hinge line in world coords after parent
+            h0, h1 = top_hinge_idx
+            H0, H1 = Vp[h0], Vp[h1]
+
+            # child rotation (closing lid)
+            R_c, t_c = se3_about_edge(H0, H1, -phi.get_value())
+            V_final = (R_c @ Vp.T).T + t_c
+
+            m.set_points_as_corners(list(map(tuple, V_final)))
+            return m
+
+        east.add_updater(upd_east)
+        west.add_updater(upd_west)
+        north.add_updater(upd_north)
+        south.add_updater(upd_south)
+        top.add_updater(upd_top)
+
+        # ----------------------------
+        # Animate: net -> fold -> unfold
+        # ----------------------------
+        self.wait(1)
+
+        # Fold walls up
+        self.play(theta.animate.set_value(PI/2), run_time=3, rate_func=smooth)
+
+        # Close the top
+        self.play(phi.animate.set_value(PI/2), run_time=2.5, rate_func=smooth)
+
+        self.wait(1)
+
+        # Unfold (open top first, then walls down)
+        self.play(phi.animate.set_value(0.0), run_time=2, rate_func=smooth)
+        self.play(theta.animate.set_value(0.0), run_time=3, rate_func=smooth)
+
+        # cleanup
+        for m in (east, west, north, south, top):
+            m.clear_updaters()
         self.wait(0.5)
