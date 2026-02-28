@@ -90,11 +90,11 @@ class CubeWithHUD(MyThreeDScene):
         self.add(label_len, val_len, label_vol, val_vol)
 
         # Camera motion (optional)
-        self.begin_ambient_camera_rotation(rate=0.6)
+        self.begin_ambient_camera_rotation(rate=0.3)
 
         # Animate
-        self.play(s.animate.set_value(3.0), run_time=3, rate_func=linear)
-        self.wait(1)
+        self.play(s.animate.set_value(3.0), run_time=8, rate_func=linear)
+        self.wait(5)
 
         # Clean up updater if you want
         cube.remove_updater(cube_updater)

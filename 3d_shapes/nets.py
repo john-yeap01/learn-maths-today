@@ -270,8 +270,8 @@ class TriangularPrism(ThreeDScene):
         self.set_camera_orientation(phi=70 * DEGREES, theta=45 * DEGREES)
         self.add(ThreeDAxes())
 
-        s = 1.0  # triangle side
-        h = 1.0  # wall "height" (net offset outward)
+        s = 2.0  # triangle side
+        h = 2.0  # wall "height" (net offset outward)
 
         # Base triangle + three walls + lid attached to wall0 outer edge
         V_base, E_base = make_equilateral_triangle(s)
@@ -322,9 +322,9 @@ class TriangularPrism(ThreeDScene):
         )
 
         # Animate
-        self.begin_ambient_camera_rotation(rate=0.5)
-        self.play(theta.animate.set_value(-PI/2), run_time=3)
-        self.play(phi.animate.set_value(-PI/2), run_time=3)
+        self.begin_ambient_camera_rotation(rate=0.2)
+        self.play(theta.animate.set_value(-PI/2), run_time=7)
+        self.play(phi.animate.set_value(-PI/2), run_time=10)
 
         # Cleanup
         for f in (wall0, wall1, wall2, lid):
@@ -575,3 +575,60 @@ class LShapedNetFold(ThreeDScene):
             f.poly.clear_updaters()
 
         self.wait(0.5)
+
+
+
+class CuboidNetSurfaceAreaHighlight(Scene):
+    def construct(self):
+        l = 3.0
+        w = 2.0
+        h = 1.5
+
+        V_base, _   = make_rect(l, w, origin=(0, 0))
+        V_east, _   = make_rect(h, w, origin=(l, 0))
+        V_west, _   = make_rect(h, w, origin=(-h, 0))
+        V_north, _  = make_rect(l, h, origin=(0, w))
+        V_south, _  = make_rect(l, h, origin=(0, -h))
+        V_top, _    = make_rect(l, w, origin=(l + h, 0))
+
+        base  = Face("base",  V_base,  color=BLUE)
+        east  = Face("east",  V_east,  color=GREEN)
+        west  = Face("west",  V_west,  color=PURPLE)
+        north = Face("north", V_north, color=RED)
+        south = Face("south", V_south, color=ORANGE)
+        top   = Face("top",   V_top,   color=YELLOW)
+
+        faces = [base, east, top, north, west, south]
+
+        # Calm net appearance
+        for f in faces:
+            c = f.poly.get_fill_color()
+            f.poly.set_fill(c, opacity=0.20)
+            f.poly.set_stroke(WHITE, width=3, opacity=0.8)
+
+        net = VGroup(*[f.poly for f in faces]).center()
+        self.play(FadeIn(net), run_time=1.0)
+        self.wait(0.3)
+
+        # Highlight helper
+        def pulse_face(face: Face):
+            c = face.poly.get_fill_color()
+            self.play(
+                face.poly.animate
+                    .set_fill(c, opacity=0.85)
+                    .set_stroke(WHITE, width=10, opacity=1.0),
+                run_time=0.45
+            )
+            self.play(
+                face.poly.animate
+                    .set_fill(c, opacity=0.25)
+                    .set_stroke(WHITE, width=3, opacity=0.8),
+                run_time=0.45
+            )
+
+        # Sequential highlighting = surface area sum
+        for f in faces:
+            self.bring_to_front(f.poly)
+            pulse_face(f)
+
+        self.wait(1.0)

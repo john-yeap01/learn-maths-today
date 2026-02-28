@@ -11,8 +11,6 @@ import numpy as np
 # self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
 # self.begin_ambient_camera_rotation(rate=0.2)
 
-
-
 class RectPrism(ThreeDScene):
     def construct(self):
         axes = ThreeDAxes()
@@ -25,7 +23,7 @@ class RectPrism(ThreeDScene):
 
         self.begin_ambient_camera_rotation(rate=0.2)
 
-        self.wait(2)
+        self.wait(4)
 
         self.stop_ambient_camera_rotation()
 
@@ -40,7 +38,7 @@ class CreateCylinder(ThreeDScene):
         cylinder = Cylinder(2, 5, [1, 2, 0])
 
         self.add(cylinder)
-        self.wait(2)
+        self.wait(10)
 
 
 
@@ -85,8 +83,8 @@ class PrismExtrude (ThreeDScene):
         )
 
         self.add(axes, prism)
-        self.play(h.animate.set_value(3.0), run_time=2)
-        self.wait(1)
+        self.play(h.animate.set_value(3.0), run_time=4)
+        self.wait(13)
 
 
 # class CubeExtrude (ThreeDScene):
@@ -144,7 +142,7 @@ class CylinderExtrude (ThreeDScene):
     def construct(self):
         axes = ThreeDAxes()
         self.set_camera_orientation(phi=75*DEGREES, theta=45*DEGREES)
-        self.begin_ambient_camera_rotation(rate=0.2)
+        self.begin_ambient_camera_rotation(rate=0.6)
 
         side = 2.0
         h = ValueTracker(0.01)  # start almost flat
@@ -156,6 +154,53 @@ class CylinderExtrude (ThreeDScene):
         )
 
         self.add(axes, cylinder)
-        self.play(h.animate.set_value(3.0), run_time=2)
+        self.play(h.animate.set_value(4.0), run_time=7)
         self.wait(1)
 
+
+
+from manim import *
+
+class TriangleAreaText(Scene):
+    def construct(self):
+        # Geometry values
+        base_len = 4
+        height_len = 3
+        area_val = 0.5 * base_len * height_len
+
+        # Triangle points
+        A = LEFT * base_len / 2
+        B = RIGHT * base_len / 2
+        C = UP * height_len
+
+        # Triangle
+        triangle = Polygon(A, B, C, color=BLUE)
+        triangle.set_fill(BLUE, opacity=0.5)
+
+        # Base
+        base = Line(A, B, color=YELLOW)
+        base_label = Text(f"base = {base_len}", font_size=28).next_to(base, DOWN)
+
+        # Height (perpendicular)
+        foot = np.array([0, 0, 0])
+        height = DashedLine(C, foot, color=RED)
+        height_label = Text(f"height = {height_len}", font_size=28).next_to(height, RIGHT)
+
+        # Area text (plain text)
+        area_text = Text(
+            f"Area = 1/2 × base × height = {area_val}",
+            font_size=32
+        ).to_edge(UP)
+
+        # Animations
+        self.play(Create(triangle))
+        self.wait(0.3)
+
+        self.play(Create(base), FadeIn(base_label))
+        self.wait(0.3)
+
+        self.play(Create(height), FadeIn(height_label))
+        self.wait(0.3)
+
+        self.play(FadeIn(area_text))
+        self.wait(2)

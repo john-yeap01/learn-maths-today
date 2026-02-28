@@ -139,9 +139,9 @@ class Generalised(ThreeDScene):
         sides = always_redraw(lambda: build_sides(vertices, h))
         self.add(sides)
 
-        self.play(h.animate.set_value(2.5), run_time=2)
+        self.play(h.animate.set_value(2.5), run_time=10)
 
-        self.wait(2)
+        self.wait(3)
         self.stop_ambient_camera_rotation()
 
 
@@ -311,3 +311,203 @@ class TrapezoidPrismCrossSection_OnRectFace(ThreeDScene):
         self.wait(4)
         self.stop_ambient_camera_rotation()
         self.wait(0.5)
+
+
+class TrapezoidalPrismVolume(ThreeDScene):
+    def construct(self):
+        self.set_camera_orientation(phi=70*DEGREES, theta=45*DEGREES)
+        self.begin_ambient_camera_rotation(rate=0.15)
+
+        # ----------------------------
+        # Trapezoid base (2D)
+        # ----------------------------
+        base_points = [
+            np.array([-2, 0, 0]),
+            np.array([ 2, 0, 0]),
+            np.array([ 1.2, 1.2, 0]),
+            np.array([-1.2, 1.2, 0]),
+        ]
+
+        base = Polygon(
+            *base_points,
+            fill_color=BLUE,
+            fill_opacity=0.7,
+            stroke_color=BLUE_E
+        )
+
+        self.play(FadeIn(base), run_time=1.5)
+        self.wait(0.5)
+
+        # ----------------------------
+        # Extrusion direction
+        # ----------------------------
+        length_vec = np.array([0, 0, 2])
+
+        top = base.copy().shift(length_vec)
+        top.set_fill(color=GREEN, opacity=0.7)
+
+        # Side faces
+        sides = VGroup()
+        for i in range(len(base_points)):
+            p1 = base_points[i]
+            p2 = base_points[(i + 1) % len(base_points)]
+            side = Polygon(
+                p1,
+                p2,
+                p2 + length_vec,
+                p1 + length_vec,
+                fill_color=TEAL,
+                fill_opacity=0.5,
+                stroke_color=TEAL_E
+            )
+            sides.add(side)
+
+        # ----------------------------
+        # Animate extrusion
+        # ----------------------------
+        self.play(
+            TransformFromCopy(base, top),
+            run_time=1.5
+        )
+
+        self.play(
+            LaggedStart(*[FadeIn(s) for s in sides], lag_ratio=0.15),
+            run_time=1.5
+        )
+
+        self.wait(0.5)
+
+        # ----------------------------
+        # Visual emphasis
+        # ----------------------------
+        self.play(
+            base.animate.set_fill(opacity=1.0),
+            top.animate.set_fill(opacity=1.0),
+            run_time=0.8
+        )
+
+        self.play(
+            base.animate.set_fill(opacity=0.6),
+            top.animate.set_fill(opacity=0.6),
+            run_time=0.8
+        )
+
+        self.wait(1)
+
+        # ----------------------------
+        # Unite as volume
+        # ----------------------------
+        prism = VGroup(base, top, sides)
+        self.play(
+            prism.animate.set_fill(color=PURPLE, opacity=0.65),
+            run_time=1.2
+        )
+
+        self.wait(2)
+
+class TrapezoidAreaToVolume(ThreeDScene):
+    def construct(self):
+        # ----------------------------
+        # 2D trapezoid
+        # ----------------------------
+        A = np.array([-3.0, -1.2, 0])
+        B = np.array([ 3.0, -1.2, 0])
+        C = np.array([ 1.6,  1.2, 0])
+        D = np.array([-1.6,  1.2, 0])
+
+        trapezoid = Polygon(A, B, C, D)
+        trapezoid.set_stroke(BLUE_E, 6)
+        trapezoid.set_fill(PURPLE, opacity=0.35)
+
+        # Height lines (2D)
+        foot_D = np.array([D[0], A[1], 0])
+        h_line_2d = Line(D, foot_D).set_stroke(YELLOW, 7)
+
+        # Symbols
+        A_sym = MathTex("A").set_color(PURPLE)
+        h_sym = MathTex("h").set_color(YELLOW)
+
+        A_sym.move_to(trapezoid.get_center())
+        h_sym.next_to(h_line_2d, LEFT)
+
+        self.play(Create(trapezoid), FadeIn(A_sym), run_time=1)
+        self.play(Create(h_line_2d), FadeIn(h_sym), run_time=0.8)
+        self.wait(0.5)
+
+        # ----------------------------
+        # Prepare 3D transition
+        # ----------------------------
+        self.remove(h_line_2d)  # 2D height no longer needed
+
+        # Switch to 3D scene behavior
+        self.move_camera(phi=70*DEGREES, theta=45*DEGREES, run_time=1.5)
+
+        # ----------------------------
+        # Extrusion into prism
+        # ----------------------------
+        length_vec = np.array([0, 0, 2.5])
+
+        base_3d = trapezoid
+        top_3d = trapezoid.copy().shift(length_vec)
+
+        top_3d.set_fill(PURPLE, opacity=0.35)
+
+        sides = VGroup()
+        pts = [A, B, C, D]
+        for i in range(4):
+            p1 = pts[i]
+            p2 = pts[(i + 1) % 4]
+            side = Polygon(
+                p1,
+                p2,
+                p2 + length_vec,
+                p1 + length_vec,
+                fill_color=TEAL,
+                fill_opacity=0.4,
+                stroke_color=TEAL_E
+            )
+            sides.add(side)
+
+        self.play(
+            TransformFromCopy(base_3d, top_3d),
+            LaggedStart(*[FadeIn(s) for s in sides], lag_ratio=0.15),
+            run_time=2
+        )
+
+        # ----------------------------
+        # Highlight length h (3D)
+        # ----------------------------
+        length_line = Line(
+            base_3d.get_center(),
+            base_3d.get_center() + length_vec
+        ).set_stroke(ORANGE, 10)
+
+        h_sym_3d = h_sym.copy()
+        h_sym_3d.next_to(length_line, RIGHT)
+
+        self.play(
+            Create(length_line),
+            Transform(h_sym, h_sym_3d),
+            run_time=0.8
+        )
+
+        # Pulse to emphasize
+        self.play(
+            length_line.animate.set_stroke(width=14, color=RED),
+            run_time=4
+        )
+        self.play(
+            length_line.animate.set_stroke(width=10, color=ORANGE),
+            run_time=4
+        )
+
+        # ----------------------------
+        # Final unified volume cue
+        # ----------------------------
+        prism = VGroup(base_3d, top_3d, sides)
+        self.play(
+            prism.animate.set_fill(opacity=0.55),
+            run_time=2
+        )
+
+        self.wait(2)
